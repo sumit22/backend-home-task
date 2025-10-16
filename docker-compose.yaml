@@ -39,6 +39,7 @@ services:
             - database_data_new:/var/lib/mysql
         environment:
             MYSQL_ROOT_PASSWORD: docker
+            MYSQL_DATABASE: rule_engine
         restart: on-failure
         networks:
             - backend
