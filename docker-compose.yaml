@@ -9,6 +9,8 @@ volumes:
         driver: local
     rabbitmqlogs:
         driver: local
+    localstack_data:
+        driver: local
 
 networks:
     backend:
@@ -56,6 +58,19 @@ services:
             - "5672:5672"
             - "15672:15672"
 
+    localstack:
+        image: localstack/localstack:latest
+        ports:
+            - "4566:4566"            # LocalStack Gateway
+        environment:
+            - SERVICES=s3,sqs,sns,dynamodb,lambda,secretsmanager
+            - DEBUG=0
+        volumes:
+            - ./docker/localstack:/etc/localstack/init/ready.d
+        networks:
+            - backend
+        restart: on-failure
+
     php:
         image: ghcr.io/debricked/docker-image-php-xdebug:latest
         environment:
@@ -80,6 +95,7 @@ services:
             - db
             - rabbitmq
             - mailhog
+            - localstack
         entrypoint:
             - /bin/sh
             - -c
