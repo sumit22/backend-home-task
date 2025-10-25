@@ -1,0 +1,23 @@
+# Read the documentation at https://github.com/thephpleague/flysystem-bundle/blob/master/docs/1-getting-started.md
+flysystem:
+    storages:
+        # Local storage (fallback or development)
+        local.storage:
+            adapter: 'local'
+            options:
+                directory: '%kernel.project_dir%/var/storage/default'
+
+        # S3 storage using LocalStack (development) or AWS (production)
+        s3.storage:
+            adapter: 'aws'
+            options:
+                client: 'aws_s3_client'
+                bucket: '%env(AWS_S3_BUCKET)%'
+                prefix: 'uploads'
+
+        # Default storage alias
+        default.storage:
+            adapter: 'aws'
+            options:
+                client: 'aws_s3_client'
+                bucket: '%env(AWS_S3_BUCKET)%'

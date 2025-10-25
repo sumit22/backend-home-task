@@ -31,62 +31,13 @@ requiring new composer dependencies.
 
 ## LocalStack (AWS Services Emulator)
 
-LocalStack emulates AWS services locally for development without incurring AWS costs.
+LocalStack emulates AWS services locally. S3 bucket `rule-engine-files` is auto-created on startup.
 
-### Quick Start
-LocalStack starts automatically with `docker compose up`. The S3 bucket `rule-engine-files` is created automatically on startup.
+- **Endpoint**: `http://localhost:4566`
+- **Credentials**: `test` / `test`
+- **Available**: S3, SQS, SNS, DynamoDB, Lambda, Secrets Manager
 
-### Access Information
-- **Endpoint**: `http://localhost:4566` (from host) or `http://localstack:4566` (from Docker)
-- **Region**: `us-east-1`
-- **Credentials**: `test` / `test` (access key / secret key)
-
-### Available Services
-- **S3**: Object storage (bucket: `rule-engine-files`)
-- **SQS**: Message queuing
-- **SNS**: Pub/sub messaging  
-- **DynamoDB**: NoSQL database
-- **Lambda**: Serverless functions
-- **Secrets Manager**: Secret storage
-
-### Using S3 Storage
-
-#### From Command Line
-```bash
-# List buckets
-docker compose exec localstack awslocal s3 ls
-
-# Upload a file
-docker compose exec localstack awslocal s3 cp /path/to/file.txt s3://rule-engine-files/
-
-# List files in bucket
-docker compose exec localstack awslocal s3 ls s3://rule-engine-files/
-
-# Download a file
-docker compose exec localstack awslocal s3 cp s3://rule-engine-files/file.txt /tmp/
-```
-
-#### From Host Machine (requires AWS CLI)
-```bash
-# List buckets
-aws --endpoint-url=http://localhost:4566 s3 ls
-
-# Upload file
-aws --endpoint-url=http://localhost:4566 s3 cp file.txt s3://rule-engine-files/
-```
-
-### Environment Variables
-Configure in your `.env` file:
-```
-AWS_ENDPOINT=http://localstack:4566
-AWS_ACCESS_KEY_ID=test
-AWS_SECRET_ACCESS_KEY=test
-AWS_DEFAULT_REGION=us-east-1
-AWS_S3_BUCKET=rule-engine-files
-```
-
-### Adding More AWS Resources
-Edit `docker/localstack/init-aws.sh` to add SQS queues, SNS topics, or other resources. They will be created automatically on LocalStack startup.
+File storage uses Flysystem with S3 adapter. Inject `FilesystemOperator` in your services.
 
 ## Database Management
 
