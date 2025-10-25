@@ -223,6 +223,15 @@
     "symfony/string": {
         "version": "v6.1.0"
     },
+    "symfony/uid": {
+        "version": "7.1",
+        "recipe": {
+            "repo": "github.com/symfony/recipes",
+            "branch": "main",
+            "version": "7.0",
+            "ref": "0df5844274d871b37fc3816c57a768ffc60a43a5"
+        }
+    },
     "symfony/var-dumper": {
         "version": "v6.1.0"
     },
