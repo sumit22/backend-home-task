@@ -14,21 +14,21 @@
         "doctrine/orm": "^3.5",
         "league/flysystem-aws-s3-v3": "^3.30",
         "league/flysystem-bundle": "^3.5",
-        "symfony/console": "7.1.*",
-        "symfony/dotenv": "7.1.*",
+        "symfony/console": "7.3.*",
+        "symfony/dotenv": "7.3.*",
         "symfony/flex": "^2",
-        "symfony/framework-bundle": "7.1.*",
-        "symfony/http-client": "7.1.*",
-        "symfony/messenger": "7.1.*",
-        "symfony/notifier": "7.1.*",
-        "symfony/property-access": "7.1.*",
-        "symfony/property-info": "7.1.*",
-        "symfony/runtime": "7.1.*",
-        "symfony/serializer": "7.1.*",
-        "symfony/slack-notifier": "7.1.*",
-        "symfony/uid": "7.1.*",
-        "symfony/validator": "7.1.*",
-        "symfony/yaml": "7.1.*"
+        "symfony/framework-bundle": "7.3.*",
+        "symfony/http-client": "7.3.*",
+        "symfony/messenger": "7.3.*",
+        "symfony/notifier": "7.3.*",
+        "symfony/property-access": "7.3.*",
+        "symfony/property-info": "7.3.*",
+        "symfony/runtime": "7.3.*",
+        "symfony/serializer": "7.3.*",
+        "symfony/slack-notifier": "7.3.*",
+        "symfony/uid": "7.3.*",
+        "symfony/validator": "7.3.*",
+        "symfony/yaml": "7.3.*"
     },
     "config": {
         "allow-plugins": {
@@ -80,11 +80,11 @@
     "extra": {
         "symfony": {
             "allow-contrib": false,
-            "require": "7.1.*"
+            "require": "7.3.*"
         }
     },
     "require-dev": {
         "symfony/maker-bundle": "^1.64",
-        "symfony/phpunit-bridge": "^7.1"
+        "symfony/phpunit-bridge": "^7.3"
     }
 }
