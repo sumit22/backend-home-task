@@ -10,6 +10,7 @@ use Doctrine\ORM\Mapping as ORM;
 use Symfony\Component\Uid\Uuid;
 use App\Entity\Trait\HasTimeStamps;
 use App\Entity\Trait\HasId;
+use Symfony\Component\Serializer\Annotation\Groups;
 
 #[ORM\Entity(repositoryClass: FilesInScanRepository::class)]
 #[ORM\Table(name: 'files_in_scan')]
@@ -26,18 +27,23 @@ class FilesInScan
     private ?RepositoryScan $repositoryScan = null;
 
     #[ORM\Column(length: 1024)]
+    #[Groups(['file:read', 'scan:read'])]
     private ?string $fileName = null;
 
     #[ORM\Column(length: 4096)]
+    #[Groups(['file:read', 'scan:read'])]
     private ?string $filePath = null;
 
     #[ORM\Column(type: Types::BIGINT)]
+    #[Groups(['file:read', 'scan:read'])]
     private ?int $size = 0;
 
     #[ORM\Column(length: 255, nullable: true)]
+    #[Groups(['file:read', 'scan:read'])]
     private ?string $mimeType = null;
 
     #[ORM\Column(length: 128, nullable: true)]
+    #[Groups(['file:read', 'scan:read'])]
     private ?string $contentHash = null;
 
     #[ORM\Column(length: 64)]

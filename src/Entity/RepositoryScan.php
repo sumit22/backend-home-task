@@ -10,6 +10,7 @@ use Doctrine\ORM\Mapping as ORM;
 use Symfony\Component\Uid\Uuid;
 use App\Entity\Trait\HasTimeStamps;
 use App\Entity\Trait\HasId;
+use Symfony\Component\Serializer\Annotation\Groups;
 
 #[ORM\Entity(repositoryClass: RepositoryScanRepository::class)]
 #[ORM\Table(name: 'repository_scan')]
@@ -27,33 +28,43 @@ class RepositoryScan
     private ?Repository $repository = null;
 
     #[ORM\Column(length: 128, nullable: true)]
+    #[Groups(['scan:read'])]
     private ?string $branch = null;
 
     #[ORM\Column(length: 256, nullable: true)]
+    #[Groups(['scan:read'])]
     private ?string $requestedBy = null;
 
     #[ORM\Column(length: 128, nullable: true)]
+    #[Groups(['scan:read'])]
     private ?string $providerSelection = null;
 
     #[ORM\Column(length: 64)]
+    #[Groups(['scan:read'])]
     private ?string $status = 'pending';
 
     #[ORM\Column(length: 64, nullable: true)]
+    #[Groups(['scan:read'])]
     private ?string $scanType = null;
 
     #[ORM\Column(length: 128, nullable: true)]
+    #[Groups(['scan:read'])]
     private ?string $scannerVersion = null;
 
     #[ORM\Column(type: Types::INTEGER)]
+    #[Groups(['scan:read'])]
     private ?int $vulnerabilityCount = 0;
 
     #[ORM\Column(type: Types::JSON, nullable: true)]
+    #[Groups(['scan:read'])]
     private ?array $rawSummary = null;
 
     #[ORM\Column(type: Types::DATETIME_MUTABLE, nullable: true)]
+    #[Groups(['scan:read'])]
     private ?\DateTime $startedAt = null;
 
     #[ORM\Column(type: Types::DATETIME_MUTABLE, nullable: true)]
+    #[Groups(['scan:read'])]
     private ?\DateTime $completedAt = null;
 
     /**

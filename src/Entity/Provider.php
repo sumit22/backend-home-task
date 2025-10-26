@@ -10,6 +10,7 @@ use Doctrine\ORM\Mapping as ORM;
 use Symfony\Component\Uid\Uuid;
 use App\Entity\Trait\HasTimeStamps;
 use App\Entity\Trait\HasId;
+use Symfony\Component\Serializer\Annotation\Groups;
 
 #[ORM\Entity(repositoryClass: ProviderRepository::class)]
 #[ORM\Table(name: 'provider')]
@@ -20,12 +21,15 @@ class Provider
     use HasId;
 
     #[ORM\Column(length: 128, unique: true)]
+    #[Groups(['provider:read'])]
     private ?string $code = null;
 
     #[ORM\Column(length: 255)]
+    #[Groups(['provider:read'])]
     private ?string $name = null;
 
     #[ORM\Column(type: Types::JSON, nullable: true)]
+    #[Groups(['provider:read'])]
     private ?array $config = null;
 
     

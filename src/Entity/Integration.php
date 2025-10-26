@@ -8,6 +8,7 @@ use Doctrine\ORM\Mapping as ORM;
 use Symfony\Component\Uid\Uuid;
 use App\Entity\Trait\HasTimeStamps;
 use App\Entity\Trait\HasId;
+use Symfony\Component\Serializer\Annotation\Groups;
 
 #[ORM\Entity(repositoryClass: IntegrationRepository::class)]
 #[ORM\Table(name: 'integration')]
@@ -22,24 +23,31 @@ class Integration
 
     #[ORM\ManyToOne(targetEntity: Provider::class, inversedBy: 'integrations')]
     #[ORM\JoinColumn(nullable: false, onDelete: 'CASCADE')]
+    #[Groups(['integration:read'])]
     private ?Provider $provider = null;
 
     #[ORM\Column(length: 1024)]
+    #[Groups(['integration:read'])]
     private ?string $externalId = null;
 
     #[ORM\Column(length: 64)]
+    #[Groups(['integration:read'])]
     private ?string $type = null;
 
     #[ORM\Column(length: 128, nullable: true)]
+    #[Groups(['integration:read'])]
     private ?string $linkedEntityType = null;
 
     #[ORM\Column(type: 'uuid', nullable: true)]
+    #[Groups(['integration:read'])]
     private ?Uuid $linkedEntityId = null;
 
     #[ORM\Column(length: 64, nullable: true)]
+    #[Groups(['integration:read'])]
     private ?string $status = null;
 
     #[ORM\Column(type: Types::JSON, nullable: true)]
+    #[Groups(['integration:read'])]
     private ?array $rawPayload = null;
 
     public function __construct()

@@ -62,7 +62,6 @@ class RepositoryController extends AbstractController
         $page = max(1, (int)$request->query->get('page', 1));
         $limit = max(1, (int)$request->query->get('limit', 20));
         $res = $this->svc->listRepositories($page, $limit);
-        // serialize data array of entities
         $json = $this->serializer->serialize($res, 'json', ['groups' => ['repo:read']]);
         return new JsonResponse($json, 200, [], true);
     }
@@ -75,6 +74,4 @@ class RepositoryController extends AbstractController
         $json = $this->serializer->serialize($repo, 'json', ['groups' => ['repo:read']]);
         return new JsonResponse($json, 200, [], true);
     }
-
-    // patch/delete similar: call service then serialize entity
 }

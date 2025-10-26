@@ -8,6 +8,7 @@ use Doctrine\ORM\Mapping as ORM;
 use Symfony\Component\Uid\Uuid;
 use App\Entity\Trait\HasTimeStamps;
 use App\Entity\Trait\HasId;
+use Symfony\Component\Serializer\Annotation\Groups;
 
 #[ORM\Entity(repositoryClass: NotificationSettingRepository::class)]
 #[ORM\Table(name: 'notification_setting')]
@@ -22,12 +23,15 @@ class NotificationSetting
     private ?Repository $repository = null;
 
     #[ORM\Column(type: Types::JSON, nullable: true)]
+    #[Groups(['repo:read', 'notification:read'])]
     private ?array $emails = null;
 
     #[ORM\Column(type: Types::JSON, nullable: true)]
+    #[Groups(['repo:read', 'notification:read'])]
     private ?array $slackChannels = null;
 
     #[ORM\Column(type: Types::JSON, nullable: true)]
+    #[Groups(['repo:read', 'notification:read'])]
     private ?array $webhooks = null;
 
     public function __construct()
