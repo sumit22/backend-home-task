@@ -21,9 +21,13 @@
         "symfony/http-client": "7.1.*",
         "symfony/messenger": "7.1.*",
         "symfony/notifier": "7.1.*",
+        "symfony/property-access": "7.1.*",
+        "symfony/property-info": "7.1.*",
         "symfony/runtime": "7.1.*",
+        "symfony/serializer": "7.1.*",
         "symfony/slack-notifier": "7.1.*",
         "symfony/uid": "7.1.*",
+        "symfony/validator": "7.1.*",
         "symfony/yaml": "7.1.*"
     },
     "config": {

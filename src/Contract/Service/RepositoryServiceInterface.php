@@ -1,5 +1,5 @@
 <?php
-namespace App\Contracts\Service;
+namespace App\Contract\Service;
 
 use App\Entity\NotificationSetting;
 use App\Entity\Repository;
@@ -13,6 +13,6 @@ interface RepositoryServiceInterface
     public function deleteRepository(string $id): bool;
 
     public function getNotificationSettings(string $repoId): ?NotificationSetting;
-    public function replaceNotificationSettings(string $repoId, array $settings): array;
-    public function patchNotificationSettings(string $repoId, array $patch): array;
+    public function replaceNotificationSettings(string $repoId, array $settings): NotificationSetting;
+    public function patchNotificationSettings(string $repoId, array $patch): NotificationSetting;
 }

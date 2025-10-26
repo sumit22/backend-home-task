@@ -2,49 +2,63 @@
 // src/Service/RepositoryService.php
 namespace App\Service;
 
-use App\Entity\Repository;
+use App\Entity\Repository as RepositoryEntity;
 use App\Entity\NotificationSetting;
 use Doctrine\ORM\EntityManagerInterface;
 use Doctrine\Persistence\ObjectRepository;
-use App\Contracts\Service\RepositoryServiceInterface;
+use App\Contract\Service\RepositoryServiceInterface;
 
 class RepositoryService implements RepositoryServiceInterface
 {
     private EntityManagerInterface $em;
-    /** @var ObjectRepository<Repository> */
     private ObjectRepository $repoRepo;
-    /** @var ObjectRepository<NotificationSetting> */
     private ObjectRepository $notifRepo;
 
     public function __construct(EntityManagerInterface $em)
     {
         $this->em = $em;
-        $this->repoRepo = $em->getRepository(Repository::class);
+        $this->repoRepo = $em->getRepository(RepositoryEntity::class);
         $this->notifRepo = $em->getRepository(NotificationSetting::class);
     }
 
-    public function createRepository(array $data): Repository
+    public function createRepository(array $data): RepositoryEntity
     {
         $name = $data['name'] ?? null;
         if (empty($name)) {
             throw new \InvalidArgumentException('Repository name is required');
         }
+
         $url = $data['url'] ?? null;
         $defaultBranch = $data['default_branch'] ?? null;
         $settings = $data['settings'] ?? null;
 
-        $repo = new Repository($name, $url, $defaultBranch, $settings);
+        $repo = new RepositoryEntity();
+        $repo->setName($name);
+        if ($url) {
+            $repo->setUrl($url);
+        }
+        if ($defaultBranch) {
+            $repo->setDefaultBranch($defaultBranch);
+        }
+        if ($settings) {
+            $repo->setSettings($settings);
+        }
+        
         $this->em->persist($repo);
 
-        // optional notification settings in create payload
         if (!empty($data['notification_settings']) && is_array($data['notification_settings'])) {
             $ns = $data['notification_settings'];
-            $notif = new NotificationSetting(
-                $repo,
-                $ns['emails'] ?? null,
-                $ns['slack_channels'] ?? null,
-                $ns['webhooks'] ?? null
-            );
+            $notif = new NotificationSetting();
+            $notif->setRepository($repo);
+            if (isset($ns['emails'])) {
+                $notif->setEmails($ns['emails']);
+            }
+            if (isset($ns['slack_channels'])) {
+                $notif->setSlackChannels($ns['slack_channels']);
+            }
+            if (isset($ns['webhooks'])) {
+                $notif->setWebhooks($ns['webhooks']);
+            }
             $this->em->persist($notif);
         }
 
@@ -53,48 +67,40 @@ class RepositoryService implements RepositoryServiceInterface
         return $repo;
     }
 
-    public function getRepository(string $id): ?Repository
+    public function getRepository(string $id): ?RepositoryEntity
     {
-        return $this->repoRepo->find($id) ?? throw new \InvalidArgumentException('Repository not found');
+        return $this->repoRepo->find($id);
     }
 
     public function listRepositories(int $page = 1, int $limit = 20): array
     {
         $page = max(1, $page);
-        $limit = max(1, min(100, $limit)); // Cap at 100 items per page
+        $limit = max(1, $limit);
         $offset = ($page - 1) * $limit;
 
-        $qb = $this->em->createQueryBuilder();
-        $qb->select('r')
-            ->from(Repository::class, 'r')
+        $qb = $this->em->createQueryBuilder()
+            ->select('r')
+            ->from(RepositoryEntity::class, 'r')
             ->orderBy('r.createdAt', 'DESC')
             ->setFirstResult($offset)
             ->setMaxResults($limit);
 
         $items = $qb->getQuery()->getResult();
-
-        // Get total count
-        $countQb = $this->em->createQueryBuilder();
-        $countQb->select('COUNT(r.id)')
-            ->from(Repository::class, 'r');
-        $total = (int) $countQb->getQuery()->getSingleScalarResult();
-
-        $data = array_map(fn(Repository $r) => $r->toArray(), $items);
+        $total = (int) $this->repoRepo->count([]);
 
         return [
-            'data' => $data,
+            'data' => $items, // array of RepositoryEntity
             'meta' => [
                 'page' => $page,
                 'limit' => $limit,
                 'total' => $total,
-                'total_pages' => (int) ceil($total / $limit),
             ],
         ];
     }
 
-    public function updateRepository(string $id, array $patch): ?Repository
+    public function updateRepository(string $id, array $patch): ?RepositoryEntity
     {
-        /** @var Repository|null $repo */
+        /** @var RepositoryEntity|null $repo */
         $repo = $this->repoRepo->find($id);
         if (!$repo) return null;
 
@@ -104,13 +110,12 @@ class RepositoryService implements RepositoryServiceInterface
         if (array_key_exists('settings', $patch)) $repo->setSettings($patch['settings']);
 
         $this->em->flush();
-
         return $repo;
     }
 
     public function deleteRepository(string $id): bool
     {
-        /** @var Repository|null $repo */
+        /** @var RepositoryEntity|null $repo */
         $repo = $this->repoRepo->find($id);
         if (!$repo) return false;
         $this->em->remove($repo);
@@ -122,13 +127,10 @@ class RepositoryService implements RepositoryServiceInterface
     {
         $repo = $this->repoRepo->find($repoId);
         if (!$repo) return null;
-
-        $ns = $this->notifRepo->findOneBy(['repository' => $repo]);
-        if (!$ns) return null;
-        return $ns;
+        return $this->notifRepo->findOneBy(['repository' => $repo]);
     }
 
-    public function replaceNotificationSettings(string $repoId, array $settings): array
+    public function replaceNotificationSettings(string $repoId, array $settings): NotificationSetting
     {
         $repo = $this->repoRepo->find($repoId);
         if (!$repo) {
@@ -141,21 +143,20 @@ class RepositoryService implements RepositoryServiceInterface
             $existing->setSlackChannels($settings['slack_channels'] ?? null);
             $existing->setWebhooks($settings['webhooks'] ?? null);
             $this->em->flush();
-            return $existing->toArray();
+            return $existing;
         }
 
-        $new = new NotificationSetting(
-            $repo,
-            $settings['emails'] ?? null,
-            $settings['slack_channels'] ?? null,
-            $settings['webhooks'] ?? null
-        );
+        $new = new NotificationSetting();
+        $new->setRepository($repo);
+        $new->setEmails($settings['emails'] ?? null);
+        $new->setSlackChannels($settings['slack_channels'] ?? null);
+        $new->setWebhooks($settings['webhooks'] ?? null);
         $this->em->persist($new);
         $this->em->flush();
-        return $new->toArray();
+        return $new;
     }
 
-    public function patchNotificationSettings(string $repoId, array $patch): array
+    public function patchNotificationSettings(string $repoId, array $patch): NotificationSetting
     {
         $repo = $this->repoRepo->find($repoId);
         if (!$repo) {
@@ -164,7 +165,6 @@ class RepositoryService implements RepositoryServiceInterface
 
         $existing = $this->notifRepo->findOneBy(['repository' => $repo]);
         if (!$existing) {
-            // create new with whatever keys provided
             return $this->replaceNotificationSettings($repoId, $patch);
         }
 
@@ -179,6 +179,6 @@ class RepositoryService implements RepositoryServiceInterface
         }
 
         $this->em->flush();
-        return $existing->toArray();
+        return $existing;
     }
 }
