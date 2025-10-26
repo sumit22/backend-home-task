@@ -6,6 +6,8 @@ use App\Repository\FileScanResultRepository;
 use Doctrine\DBAL\Types\Types;
 use Doctrine\ORM\Mapping as ORM;
 use Symfony\Component\Uid\Uuid;
+use App\Entity\Trait\HasTimeStamps;
+use App\Entity\Trait\HasId;
 
 #[ORM\Entity(repositoryClass: FileScanResultRepository::class)]
 #[ORM\HasLifecycleCallbacks]
@@ -13,10 +15,9 @@ use Symfony\Component\Uid\Uuid;
 #[ORM\Index(columns: ['scan_result_id'], name: 'idx_file_scan_result_scan')]
 class FileScanResult
 {
-    #[ORM\Id]
-    #[ORM\Column(type: 'uuid', unique: true)]
-    private ?Uuid $id = null;
-
+    use HasTimeStamps;
+    use HasId;
+    
     #[ORM\ManyToOne(targetEntity: FilesInScan::class, inversedBy: 'fileScanResults')]
     #[ORM\JoinColumn(nullable: false, onDelete: 'CASCADE')]
     private ?FilesInScan $file = null;
@@ -31,32 +32,9 @@ class FileScanResult
     #[ORM\Column(length: 64)]
     private ?string $status = 'unknown';
 
-    #[ORM\Column(type: Types::DATETIME_IMMUTABLE)]
-    private ?\DateTimeImmutable $createdAt = null;
-
-    #[ORM\Column(type: Types::DATETIME_MUTABLE, nullable: true)]
-    private ?\DateTime $updatedAt = null;
-
     public function __construct()
     {
-        $this->id = Uuid::v4();
-    }
-
-    #[ORM\PrePersist]
-    public function setCreatedAtValue(): void
-    {
-        $this->createdAt = new \DateTimeImmutable();
-    }
-
-    #[ORM\PreUpdate]
-    public function setUpdatedAtValue(): void
-    {
-        $this->updatedAt = new \DateTime();
-    }
-
-    public function getId(): ?Uuid
-    {
-        return $this->id;
+        $this->initializeId();
     }
 
     public function getFile(): ?FilesInScan
@@ -105,15 +83,5 @@ class FileScanResult
         $this->status = $status;
 
         return $this;
-    }
-
-    public function getCreatedAt(): ?\DateTimeImmutable
-    {
-        return $this->createdAt;
-    }
-
-    public function getUpdatedAt(): ?\DateTime
-    {
-        return $this->updatedAt;
     }
 }

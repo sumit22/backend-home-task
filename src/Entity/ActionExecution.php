@@ -6,6 +6,8 @@ use App\Repository\ActionExecutionRepository;
 use Doctrine\DBAL\Types\Types;
 use Doctrine\ORM\Mapping as ORM;
 use Symfony\Component\Uid\Uuid;
+use App\Entity\Trait\HasTimeStamps;
+use App\Entity\Trait\HasId;
 
 #[ORM\Entity(repositoryClass: ActionExecutionRepository::class)]
 #[ORM\HasLifecycleCallbacks]
@@ -13,9 +15,8 @@ use Symfony\Component\Uid\Uuid;
 #[ORM\Index(columns: ['rule_id'], name: 'idx_action_execution_rule')]
 class ActionExecution
 {
-    #[ORM\Id]
-    #[ORM\Column(type: 'uuid', unique: true)]
-    private ?Uuid $id = null;
+    use HasTimeStamps;
+    use HasId;
 
     #[ORM\ManyToOne(targetEntity: Rule::class)]
     #[ORM\JoinColumn(nullable: true, onDelete: 'SET NULL')]
@@ -39,27 +40,15 @@ class ActionExecution
     #[ORM\Column(type: Types::JSON, nullable: true)]
     private ?array $resultPayload = null;
 
-    #[ORM\Column(type: Types::DATETIME_IMMUTABLE)]
-    private ?\DateTimeImmutable $createdAt = null;
-
     #[ORM\Column(type: Types::DATETIME_MUTABLE, nullable: true)]
     private ?\DateTime $finishedAt = null;
 
     public function __construct()
     {
-        $this->id = Uuid::v4();
+        $this->initializeId();
     }
 
-    #[ORM\PrePersist]
-    public function setCreatedAtValue(): void
-    {
-        $this->createdAt = new \DateTimeImmutable();
-    }
-
-    public function getId(): ?Uuid
-    {
-        return $this->id;
-    }
+    
 
     public function getRule(): ?Rule
     {
@@ -133,10 +122,7 @@ class ActionExecution
         return $this;
     }
 
-    public function getCreatedAt(): ?\DateTimeImmutable
-    {
-        return $this->createdAt;
-    }
+    
 
     public function getFinishedAt(): ?\DateTime
     {

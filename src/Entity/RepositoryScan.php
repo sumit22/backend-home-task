@@ -8,47 +8,58 @@ use Doctrine\Common\Collections\Collection;
 use Doctrine\DBAL\Types\Types;
 use Doctrine\ORM\Mapping as ORM;
 use Symfony\Component\Uid\Uuid;
+use App\Entity\Trait\HasTimeStamps;
+use App\Entity\Trait\HasId;
 
 #[ORM\Entity(repositoryClass: RepositoryScanRepository::class)]
+#[ORM\Table(name: 'repository_scan')]
+#[ORM\Index(columns: ['repository_id'], name: 'idx_repository_scan_repo')]
+#[ORM\Index(columns: ['status'], name: 'idx_repository_scan_status')]
+#[ORM\Index(columns: ['provider_selection'], name: 'idx_repository_scan_provider')]
 #[ORM\HasLifecycleCallbacks]
 class RepositoryScan
 {
-    #[ORM\Id]
-    #[ORM\Column(type: 'uuid', unique: true)]
-    private ?Uuid $id = null;
+    use HasTimeStamps;
+    use HasId;
 
     #[ORM\ManyToOne(targetEntity: Repository::class, inversedBy: 'repositoryScans')]
     #[ORM\JoinColumn(nullable: false, onDelete: 'CASCADE')]
     private ?Repository $repository = null;
 
-    #[ORM\Column(length: 255, nullable: true)]
-    private ?string $commitSha = null;
-
-    #[ORM\Column(length: 255, nullable: true)]
+    #[ORM\Column(length: 128, nullable: true)]
     private ?string $branch = null;
 
+    #[ORM\Column(length: 256, nullable: true)]
+    private ?string $requestedBy = null;
+
+    #[ORM\Column(length: 128, nullable: true)]
+    private ?string $providerSelection = null;
+
     #[ORM\Column(length: 64)]
-    private ?string $status = null;
+    private ?string $status = 'pending';
+
+    #[ORM\Column(length: 64, nullable: true)]
+    private ?string $scanType = null;
+
+    #[ORM\Column(length: 128, nullable: true)]
+    private ?string $scannerVersion = null;
+
+    #[ORM\Column(type: Types::INTEGER)]
+    private ?int $vulnerabilityCount = 0;
+
+    #[ORM\Column(type: Types::JSON, nullable: true)]
+    private ?array $rawSummary = null;
 
     #[ORM\Column(type: Types::DATETIME_MUTABLE, nullable: true)]
     private ?\DateTime $startedAt = null;
 
     #[ORM\Column(type: Types::DATETIME_MUTABLE, nullable: true)]
-    private ?\DateTime $finishedAt = null;
-
-    #[ORM\Column(type: Types::JSON, nullable: true)]
-    private ?array $metadata = null;
-
-    #[ORM\Column(type: Types::DATETIME_IMMUTABLE)]
-    private ?\DateTimeImmutable $createdAt = null;
-
-    #[ORM\Column(type: Types::DATETIME_MUTABLE, nullable: true)]
-    private ?\DateTime $updatedAt = null;
+    private ?\DateTime $completedAt = null;
 
     /**
      * @var Collection<int, FilesInScan>
      */
-    #[ORM\OneToMany(targetEntity: FilesInScan::class, mappedBy: 'scan')]
+    #[ORM\OneToMany(targetEntity: FilesInScan::class, mappedBy: 'repositoryScan')]
     private Collection $filesInScans;
 
     /**
@@ -62,27 +73,12 @@ class RepositoryScan
 
     public function __construct()
     {
-        $this->id = Uuid::v4();
+        $this->initializeId();
         $this->filesInScans = new ArrayCollection();
         $this->vulnerabilities = new ArrayCollection();
     }
 
-    #[ORM\PrePersist]
-    public function setCreatedAtValue(): void
-    {
-        $this->createdAt = new \DateTimeImmutable();
-    }
-
-    #[ORM\PreUpdate]
-    public function setUpdatedAtValue(): void
-    {
-        $this->updatedAt = new \DateTime();
-    }
-
-    public function getId(): ?Uuid
-    {
-        return $this->id;
-    }
+    
 
     public function getRepository(): ?Repository
     {
@@ -92,18 +88,6 @@ class RepositoryScan
     public function setRepository(?Repository $repository): static
     {
         $this->repository = $repository;
-
-        return $this;
-    }
-
-    public function getCommitSha(): ?string
-    {
-        return $this->commitSha;
-    }
-
-    public function setCommitSha(?string $commitSha): static
-    {
-        $this->commitSha = $commitSha;
 
         return $this;
     }
@@ -120,6 +104,30 @@ class RepositoryScan
         return $this;
     }
 
+    public function getRequestedBy(): ?string
+    {
+        return $this->requestedBy;
+    }
+
+    public function setRequestedBy(?string $requestedBy): static
+    {
+        $this->requestedBy = $requestedBy;
+
+        return $this;
+    }
+
+    public function getProviderSelection(): ?string
+    {
+        return $this->providerSelection;
+    }
+
+    public function setProviderSelection(?string $providerSelection): static
+    {
+        $this->providerSelection = $providerSelection;
+
+        return $this;
+    }
+
     public function getStatus(): ?string
     {
         return $this->status;
@@ -130,6 +138,59 @@ class RepositoryScan
         $this->status = $status;
 
         return $this;
+    }
+
+    public function getScanType(): ?string
+    {
+        return $this->scanType;
+    }
+
+    public function setScanType(?string $scanType): static
+    {
+        $this->scanType = $scanType;
+
+        return $this;
+    }
+
+    public function getScannerVersion(): ?string
+    {
+        return $this->scannerVersion;
+    }
+
+    public function setScannerVersion(?string $scannerVersion): static
+    {
+        $this->scannerVersion = $scannerVersion;
+
+        return $this;
+    }
+
+    public function getVulnerabilityCount(): ?int
+    {
+        return $this->vulnerabilityCount;
+    }
+
+    public function setVulnerabilityCount(int $vulnerabilityCount): static
+    {
+        $this->vulnerabilityCount = $vulnerabilityCount;
+
+        return $this;
+    }
+
+    public function getRawSummary(): ?array
+    {
+        return $this->rawSummary;
+    }
+
+    public function setRawSummary(?array $rawSummary): static
+    {
+        $this->rawSummary = $rawSummary;
+
+        return $this;
+    }
+
+    public function getCreatedAt(): ?\DateTimeImmutable
+    {
+        return $this->createdAt;
     }
 
     public function getStartedAt(): ?\DateTime
@@ -144,39 +205,19 @@ class RepositoryScan
         return $this;
     }
 
-    public function getFinishedAt(): ?\DateTime
+    public function getCompletedAt(): ?\DateTime
     {
-        return $this->finishedAt;
+        return $this->completedAt;
     }
 
-    public function setFinishedAt(?\DateTime $finishedAt): static
+    public function setCompletedAt(?\DateTime $completedAt): static
     {
-        $this->finishedAt = $finishedAt;
+        $this->completedAt = $completedAt;
 
         return $this;
     }
 
-    public function getMetadata(): ?array
-    {
-        return $this->metadata;
-    }
-
-    public function setMetadata(?array $metadata): static
-    {
-        $this->metadata = $metadata;
-
-        return $this;
-    }
-
-    public function getCreatedAt(): ?\DateTimeImmutable
-    {
-        return $this->createdAt;
-    }
-
-    public function getUpdatedAt(): ?\DateTime
-    {
-        return $this->updatedAt;
-    }
+    
 
     /**
      * @return Collection<int, FilesInScan>
@@ -190,7 +231,7 @@ class RepositoryScan
     {
         if (!$this->filesInScans->contains($filesInScan)) {
             $this->filesInScans->add($filesInScan);
-            $filesInScan->setScan($this);
+            $filesInScan->setRepositoryScan($this);
         }
 
         return $this;
@@ -199,8 +240,8 @@ class RepositoryScan
     public function removeFilesInScan(FilesInScan $filesInScan): static
     {
         if ($this->filesInScans->removeElement($filesInScan)) {
-            if ($filesInScan->getScan() === $this) {
-                $filesInScan->setScan(null);
+            if ($filesInScan->getRepositoryScan() === $this) {
+                $filesInScan->setRepositoryScan(null);
             }
         }
 

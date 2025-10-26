@@ -8,33 +8,40 @@ use Doctrine\Common\Collections\Collection;
 use Doctrine\DBAL\Types\Types;
 use Doctrine\ORM\Mapping as ORM;
 use Symfony\Component\Uid\Uuid;
+use App\Entity\Trait\HasTimeStamps;
+use App\Entity\Trait\HasId;
 
 #[ORM\Entity(repositoryClass: FilesInScanRepository::class)]
+#[ORM\Table(name: 'files_in_scan')]
+#[ORM\Index(columns: ['repository_scan_id'], name: 'idx_files_in_scan_scan')]
+#[ORM\Index(columns: ['content_hash'], name: 'idx_files_in_scan_hash')]
 #[ORM\HasLifecycleCallbacks]
 class FilesInScan
 {
-    #[ORM\Id]
-    #[ORM\Column(type: 'uuid', unique: true)]
-    private ?Uuid $id = null;
+    use HasTimeStamps;
+    use HasId;
 
     #[ORM\ManyToOne(targetEntity: RepositoryScan::class, inversedBy: 'filesInScans')]
     #[ORM\JoinColumn(nullable: false, onDelete: 'CASCADE')]
-    private ?RepositoryScan $scan = null;
+    private ?RepositoryScan $repositoryScan = null;
 
-    #[ORM\Column(length: 2048)]
+    #[ORM\Column(length: 1024)]
+    private ?string $fileName = null;
+
+    #[ORM\Column(length: 4096)]
     private ?string $filePath = null;
 
+    #[ORM\Column(type: Types::BIGINT)]
+    private ?int $size = 0;
+
+    #[ORM\Column(length: 255, nullable: true)]
+    private ?string $mimeType = null;
+
     #[ORM\Column(length: 128, nullable: true)]
-    private ?string $fileHash = null;
+    private ?string $contentHash = null;
 
-    #[ORM\Column(type: Types::INTEGER, nullable: true)]
-    private ?int $fileSize = null;
-
-    #[ORM\Column(type: Types::JSON, nullable: true)]
-    private ?array $metadata = null;
-
-    #[ORM\Column(type: Types::DATETIME_IMMUTABLE)]
-    private ?\DateTimeImmutable $createdAt = null;
+    #[ORM\Column(length: 64)]
+    private ?string $status = 'stored';
 
     /**
      * @var Collection<int, FileScanResult>
@@ -44,29 +51,32 @@ class FilesInScan
 
     public function __construct()
     {
-        $this->id = Uuid::v4();
+        $this->initializeId();
         $this->fileScanResults = new ArrayCollection();
     }
 
-    #[ORM\PrePersist]
-    public function setCreatedAtValue(): void
+    
+
+    public function getRepositoryScan(): ?RepositoryScan
     {
-        $this->createdAt = new \DateTimeImmutable();
+        return $this->repositoryScan;
     }
 
-    public function getId(): ?Uuid
+    public function setRepositoryScan(?RepositoryScan $repositoryScan): static
     {
-        return $this->id;
+        $this->repositoryScan = $repositoryScan;
+
+        return $this;
     }
 
-    public function getScan(): ?RepositoryScan
+    public function getFileName(): ?string
     {
-        return $this->scan;
+        return $this->fileName;
     }
 
-    public function setScan(?RepositoryScan $scan): static
+    public function setFileName(string $fileName): static
     {
-        $this->scan = $scan;
+        $this->fileName = $fileName;
 
         return $this;
     }
@@ -83,46 +93,55 @@ class FilesInScan
         return $this;
     }
 
-    public function getFileHash(): ?string
+    public function getSize(): ?int
     {
-        return $this->fileHash;
+        return $this->size;
     }
 
-    public function setFileHash(?string $fileHash): static
+    public function setSize(int $size): static
     {
-        $this->fileHash = $fileHash;
+        $this->size = $size;
 
         return $this;
     }
 
-    public function getFileSize(): ?int
+    public function getMimeType(): ?string
     {
-        return $this->fileSize;
+        return $this->mimeType;
     }
 
-    public function setFileSize(?int $fileSize): static
+    public function setMimeType(?string $mimeType): static
     {
-        $this->fileSize = $fileSize;
+        $this->mimeType = $mimeType;
 
         return $this;
     }
 
-    public function getMetadata(): ?array
+    public function getContentHash(): ?string
     {
-        return $this->metadata;
+        return $this->contentHash;
     }
 
-    public function setMetadata(?array $metadata): static
+    public function setContentHash(?string $contentHash): static
     {
-        $this->metadata = $metadata;
+        $this->contentHash = $contentHash;
 
         return $this;
     }
 
-    public function getCreatedAt(): ?\DateTimeImmutable
+    public function getStatus(): ?string
     {
-        return $this->createdAt;
+        return $this->status;
     }
+
+    public function setStatus(string $status): static
+    {
+        $this->status = $status;
+
+        return $this;
+    }
+
+    
 
     /**
      * @return Collection<int, FileScanResult>

@@ -6,16 +6,17 @@ use App\Repository\RuleActionRepository;
 use Doctrine\DBAL\Types\Types;
 use Doctrine\ORM\Mapping as ORM;
 use Symfony\Component\Uid\Uuid;
+use App\Entity\Trait\HasTimeStamps;
+use App\Entity\Trait\HasId;
 
 #[ORM\Entity(repositoryClass: RuleActionRepository::class)]
 #[ORM\HasLifecycleCallbacks]
 #[ORM\Index(columns: ['rule_id'], name: 'idx_rule_action_rule')]
 class RuleAction
 {
-    #[ORM\Id]
-    #[ORM\Column(type: 'uuid', unique: true)]
-    private ?Uuid $id = null;
-
+    use HasTimeStamps;
+    use HasId;
+    
     #[ORM\ManyToOne(targetEntity: Rule::class, inversedBy: 'ruleActions')]
     #[ORM\JoinColumn(nullable: false, onDelete: 'CASCADE')]
     private ?Rule $rule = null;
@@ -26,23 +27,9 @@ class RuleAction
     #[ORM\Column(type: Types::JSON, nullable: true)]
     private ?array $actionPayload = null;
 
-    #[ORM\Column(type: Types::DATETIME_IMMUTABLE)]
-    private ?\DateTimeImmutable $createdAt = null;
-
     public function __construct()
     {
-        $this->id = Uuid::v4();
-    }
-
-    #[ORM\PrePersist]
-    public function setCreatedAtValue(): void
-    {
-        $this->createdAt = new \DateTimeImmutable();
-    }
-
-    public function getId(): ?Uuid
-    {
-        return $this->id;
+        $this->initializeId();
     }
 
     public function getRule(): ?Rule
@@ -79,10 +66,5 @@ class RuleAction
         $this->actionPayload = $actionPayload;
 
         return $this;
-    }
-
-    public function getCreatedAt(): ?\DateTimeImmutable
-    {
-        return $this->createdAt;
     }
 }

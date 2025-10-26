@@ -6,16 +6,19 @@ use App\Repository\IntegrationRepository;
 use Doctrine\DBAL\Types\Types;
 use Doctrine\ORM\Mapping as ORM;
 use Symfony\Component\Uid\Uuid;
+use App\Entity\Trait\HasTimeStamps;
+use App\Entity\Trait\HasId;
 
 #[ORM\Entity(repositoryClass: IntegrationRepository::class)]
+#[ORM\Table(name: 'integration')]
 #[ORM\HasLifecycleCallbacks]
 #[ORM\Index(columns: ['provider_id'], name: 'idx_integration_provider')]
 #[ORM\Index(columns: ['linked_entity_type', 'linked_entity_id'], name: 'idx_integration_linked')]
+#[ORM\Index(columns: ['type'], name: 'idx_integration_type')]
 class Integration
 {
-    #[ORM\Id]
-    #[ORM\Column(type: 'uuid', unique: true)]
-    private ?Uuid $id = null;
+    use HasTimeStamps;
+    use HasId;
 
     #[ORM\ManyToOne(targetEntity: Provider::class, inversedBy: 'integrations')]
     #[ORM\JoinColumn(nullable: false, onDelete: 'CASCADE')]
@@ -39,33 +42,12 @@ class Integration
     #[ORM\Column(type: Types::JSON, nullable: true)]
     private ?array $rawPayload = null;
 
-    #[ORM\Column(type: Types::DATETIME_IMMUTABLE)]
-    private ?\DateTimeImmutable $createdAt = null;
-
-    #[ORM\Column(type: Types::DATETIME_MUTABLE, nullable: true)]
-    private ?\DateTime $updatedAt = null;
-
     public function __construct()
     {
-        $this->id = Uuid::v4();
+        $this->initializeId();
     }
 
-    #[ORM\PrePersist]
-    public function setCreatedAtValue(): void
-    {
-        $this->createdAt = new \DateTimeImmutable();
-    }
-
-    #[ORM\PreUpdate]
-    public function setUpdatedAtValue(): void
-    {
-        $this->updatedAt = new \DateTime();
-    }
-
-    public function getId(): ?Uuid
-    {
-        return $this->id;
-    }
+    
 
     public function getProvider(): ?Provider
     {
@@ -151,13 +133,5 @@ class Integration
         return $this;
     }
 
-    public function getCreatedAt(): ?\DateTimeImmutable
-    {
-        return $this->createdAt;
-    }
-
-    public function getUpdatedAt(): ?\DateTime
-    {
-        return $this->updatedAt;
-    }
+    
 }

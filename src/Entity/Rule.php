@@ -8,16 +8,17 @@ use Doctrine\Common\Collections\Collection;
 use Doctrine\DBAL\Types\Types;
 use Doctrine\ORM\Mapping as ORM;
 use Symfony\Component\Uid\Uuid;
+use App\Entity\Trait\HasTimeStamps;
+use App\Entity\Trait\HasId;
 
 #[ORM\Entity(repositoryClass: RuleRepository::class)]
 #[ORM\Table(name: 'rule')]
 #[ORM\HasLifecycleCallbacks]
 class Rule
 {
-    #[ORM\Id]
-    #[ORM\Column(type: 'uuid', unique: true)]
-    private ?Uuid $id = null;
-
+    use HasTimeStamps;
+    use HasId;
+    
     #[ORM\Column(length: 512)]
     private ?string $name = null;
 
@@ -39,12 +40,6 @@ class Rule
     #[ORM\Column(type: Types::JSON, nullable: true)]
     private ?array $remediationConfig = null;
 
-    #[ORM\Column(type: Types::DATETIME_IMMUTABLE)]
-    private ?\DateTimeImmutable $createdAt = null;
-
-    #[ORM\Column(type: Types::DATETIME_MUTABLE, nullable: true)]
-    private ?\DateTime $updatedAt = null;
-
     /**
      * @var Collection<int, RuleAction>
      */
@@ -53,26 +48,10 @@ class Rule
 
     public function __construct()
     {
-        $this->id = Uuid::v4();
+        $this->initializeId();
         $this->ruleActions = new ArrayCollection();
     }
 
-    #[ORM\PrePersist]
-    public function setCreatedAtValue(): void
-    {
-        $this->createdAt = new \DateTimeImmutable();
-    }
-
-    #[ORM\PreUpdate]
-    public function setUpdatedAtValue(): void
-    {
-        $this->updatedAt = new \DateTime();
-    }
-
-    public function getId(): ?Uuid
-    {
-        return $this->id;
-    }
 
     public function getName(): ?string
     {
@@ -156,16 +135,6 @@ class Rule
         $this->remediationConfig = $remediationConfig;
 
         return $this;
-    }
-
-    public function getCreatedAt(): ?\DateTimeImmutable
-    {
-        return $this->createdAt;
-    }
-
-    public function getUpdatedAt(): ?\DateTime
-    {
-        return $this->updatedAt;
     }
 
     /**

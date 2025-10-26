@@ -8,37 +8,30 @@ use Doctrine\Common\Collections\Collection;
 use Doctrine\DBAL\Types\Types;
 use Doctrine\ORM\Mapping as ORM;
 use Symfony\Component\Uid\Uuid;
+use App\Entity\Trait\HasTimeStamps;
+use App\Entity\Trait\HasId;
 
 #[ORM\Entity(repositoryClass: RepositoryRepository::class)]
 #[ORM\Table(name: 'repository')]
 #[ORM\HasLifecycleCallbacks]
 class Repository
 {
-    #[ORM\Id]
-    #[ORM\Column(type: 'uuid', unique: true)]
-    private ?Uuid $id = null;
+    use HasTimeStamps;
+    use HasId;
 
-    #[ORM\ManyToOne(targetEntity: Provider::class, inversedBy: 'repositories')]
-    #[ORM\JoinColumn(nullable: false, onDelete: 'CASCADE')]
-    private ?Provider $provider = null;
-
-    #[ORM\Column(length: 1024)]
+    #[ORM\Column(length: 512)]
     private ?string $name = null;
 
     #[ORM\Column(length: 2048, nullable: true)]
-    private ?string $fullPath = null;
+    private ?string $url = null;
 
-    #[ORM\Column(length: 255, nullable: true)]
+    #[ORM\Column(length: 128, nullable: true)]
     private ?string $defaultBranch = null;
 
     #[ORM\Column(type: Types::JSON, nullable: true)]
-    private ?array $metadata = null;
+    private ?array $settings = null;
 
-    #[ORM\Column(type: Types::DATETIME_IMMUTABLE)]
-    private ?\DateTimeImmutable $createdAt = null;
-
-    #[ORM\Column(type: Types::DATETIME_MUTABLE, nullable: true)]
-    private ?\DateTime $updatedAt = null;
+    
 
     /**
      * @var Collection<int, NotificationSetting>
@@ -54,39 +47,12 @@ class Repository
 
     public function __construct()
     {
-        $this->id = Uuid::v4();
+        $this->initializeId();
         $this->notificationSettings = new ArrayCollection();
         $this->repositoryScans = new ArrayCollection();
     }
 
-    #[ORM\PrePersist]
-    public function setCreatedAtValue(): void
-    {
-        $this->createdAt = new \DateTimeImmutable();
-    }
-
-    #[ORM\PreUpdate]
-    public function setUpdatedAtValue(): void
-    {
-        $this->updatedAt = new \DateTime();
-    }
-
-    public function getId(): ?Uuid
-    {
-        return $this->id;
-    }
-
-    public function getProvider(): ?Provider
-    {
-        return $this->provider;
-    }
-
-    public function setProvider(?Provider $provider): static
-    {
-        $this->provider = $provider;
-
-        return $this;
-    }
+    
 
     public function getName(): ?string
     {
@@ -100,14 +66,14 @@ class Repository
         return $this;
     }
 
-    public function getFullPath(): ?string
+    public function getUrl(): ?string
     {
-        return $this->fullPath;
+        return $this->url;
     }
 
-    public function setFullPath(?string $fullPath): static
+    public function setUrl(?string $url): static
     {
-        $this->fullPath = $fullPath;
+        $this->url = $url;
 
         return $this;
     }
@@ -124,27 +90,19 @@ class Repository
         return $this;
     }
 
-    public function getMetadata(): ?array
+    public function getSettings(): ?array
     {
-        return $this->metadata;
+        return $this->settings;
     }
 
-    public function setMetadata(?array $metadata): static
+    public function setSettings(?array $settings): static
     {
-        $this->metadata = $metadata;
+        $this->settings = $settings;
 
         return $this;
     }
 
-    public function getCreatedAt(): ?\DateTimeImmutable
-    {
-        return $this->createdAt;
-    }
-
-    public function getUpdatedAt(): ?\DateTime
-    {
-        return $this->updatedAt;
-    }
+    
 
     /**
      * @return Collection<int, NotificationSetting>

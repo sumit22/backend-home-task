@@ -6,15 +6,16 @@ use App\Repository\ApiCredentialRepository;
 use Doctrine\DBAL\Types\Types;
 use Doctrine\ORM\Mapping as ORM;
 use Symfony\Component\Uid\Uuid;
+use App\Entity\Trait\HasTimeStamps;
+use App\Entity\Trait\HasId;
 
 #[ORM\Entity(repositoryClass: ApiCredentialRepository::class)]
 #[ORM\HasLifecycleCallbacks]
 #[ORM\Index(columns: ['provider_id'], name: 'idx_api_credential_provider')]
 class ApiCredential
 {
-    #[ORM\Id]
-    #[ORM\Column(type: 'uuid', unique: true)]
-    private ?Uuid $id = null;
+    use HasTimeStamps;
+    use HasId;
 
     #[ORM\ManyToOne(targetEntity: Provider::class, inversedBy: 'apiCredentials')]
     #[ORM\JoinColumn(nullable: false, onDelete: 'CASCADE')]
@@ -26,24 +27,12 @@ class ApiCredential
     #[ORM\Column(type: Types::DATETIME_MUTABLE, nullable: true)]
     private ?\DateTime $lastRotatedAt = null;
 
-    #[ORM\Column(type: Types::DATETIME_IMMUTABLE)]
-    private ?\DateTimeImmutable $createdAt = null;
-
     public function __construct()
     {
-        $this->id = Uuid::v4();
+        $this->initializeId();
     }
 
-    #[ORM\PrePersist]
-    public function setCreatedAtValue(): void
-    {
-        $this->createdAt = new \DateTimeImmutable();
-    }
-
-    public function getId(): ?Uuid
-    {
-        return $this->id;
-    }
+    
 
     public function getProvider(): ?Provider
     {
@@ -81,8 +70,5 @@ class ApiCredential
         return $this;
     }
 
-    public function getCreatedAt(): ?\DateTimeImmutable
-    {
-        return $this->createdAt;
-    }
+    
 }

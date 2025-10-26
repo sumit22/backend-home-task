@@ -8,15 +8,16 @@ use Doctrine\Common\Collections\Collection;
 use Doctrine\DBAL\Types\Types;
 use Doctrine\ORM\Mapping as ORM;
 use Symfony\Component\Uid\Uuid;
+use App\Entity\Trait\HasTimeStamps;
+use App\Entity\Trait\HasId;
 
 #[ORM\Entity(repositoryClass: ScanResultRepository::class)]
 #[ORM\HasLifecycleCallbacks]
 class ScanResult
 {
-    #[ORM\Id]
-    #[ORM\Column(type: 'uuid', unique: true)]
-    private ?Uuid $id = null;
-
+    use HasTimeStamps;
+    use HasId;
+    
     #[ORM\OneToOne(targetEntity: RepositoryScan::class, inversedBy: 'scanResult')]
     #[ORM\JoinColumn(nullable: false, unique: true, onDelete: 'CASCADE')]
     private ?RepositoryScan $repositoryScan = null;
@@ -30,12 +31,6 @@ class ScanResult
     #[ORM\Column(type: Types::INTEGER)]
     private ?int $vulnerabilityCount = 0;
 
-    #[ORM\Column(type: Types::DATETIME_IMMUTABLE)]
-    private ?\DateTimeImmutable $createdAt = null;
-
-    #[ORM\Column(type: Types::DATETIME_MUTABLE, nullable: true)]
-    private ?\DateTime $updatedAt = null;
-
     /**
      * @var Collection<int, FileScanResult>
      */
@@ -44,25 +39,8 @@ class ScanResult
 
     public function __construct()
     {
-        $this->id = Uuid::v4();
+        $this->initializeId();
         $this->fileScanResults = new ArrayCollection();
-    }
-
-    #[ORM\PrePersist]
-    public function setCreatedAtValue(): void
-    {
-        $this->createdAt = new \DateTimeImmutable();
-    }
-
-    #[ORM\PreUpdate]
-    public function setUpdatedAtValue(): void
-    {
-        $this->updatedAt = new \DateTime();
-    }
-
-    public function getId(): ?Uuid
-    {
-        return $this->id;
     }
 
     public function getRepositoryScan(): ?RepositoryScan
@@ -111,16 +89,6 @@ class ScanResult
         $this->vulnerabilityCount = $vulnerabilityCount;
 
         return $this;
-    }
-
-    public function getCreatedAt(): ?\DateTimeImmutable
-    {
-        return $this->createdAt;
-    }
-
-    public function getUpdatedAt(): ?\DateTime
-    {
-        return $this->updatedAt;
     }
 
     /**

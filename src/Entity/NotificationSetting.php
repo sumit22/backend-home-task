@@ -6,46 +6,36 @@ use App\Repository\NotificationSettingRepository;
 use Doctrine\DBAL\Types\Types;
 use Doctrine\ORM\Mapping as ORM;
 use Symfony\Component\Uid\Uuid;
+use App\Entity\Trait\HasTimeStamps;
+use App\Entity\Trait\HasId;
 
 #[ORM\Entity(repositoryClass: NotificationSettingRepository::class)]
+#[ORM\Table(name: 'notification_setting')]
 #[ORM\HasLifecycleCallbacks]
 class NotificationSetting
 {
-    #[ORM\Id]
-    #[ORM\Column(type: 'uuid', unique: true)]
-    private ?Uuid $id = null;
+    use HasTimeStamps;
+    use HasId;
 
     #[ORM\ManyToOne(targetEntity: Repository::class, inversedBy: 'notificationSettings')]
     #[ORM\JoinColumn(nullable: false, onDelete: 'CASCADE')]
     private ?Repository $repository = null;
 
-    #[ORM\Column(length: 64)]
-    private ?string $channel = null;
+    #[ORM\Column(type: Types::JSON, nullable: true)]
+    private ?array $emails = null;
 
     #[ORM\Column(type: Types::JSON, nullable: true)]
-    private ?array $config = null;
+    private ?array $slackChannels = null;
 
-    #[ORM\Column]
-    private ?bool $enabled = null;
-
-    #[ORM\Column(type: Types::DATETIME_IMMUTABLE)]
-    private ?\DateTimeImmutable $createdAt = null;
+    #[ORM\Column(type: Types::JSON, nullable: true)]
+    private ?array $webhooks = null;
 
     public function __construct()
     {
-        $this->id = Uuid::v4();
+        $this->initializeId();
     }
 
-    #[ORM\PrePersist]
-    public function setCreatedAtValue(): void
-    {
-        $this->createdAt = new \DateTimeImmutable();
-    }
-
-    public function getId(): ?Uuid
-    {
-        return $this->id;
-    }
+    
 
     public function getRepository(): ?Repository
     {
@@ -59,44 +49,41 @@ class NotificationSetting
         return $this;
     }
 
-    public function getChannel(): ?string
+    public function getEmails(): ?array
     {
-        return $this->channel;
+        return $this->emails;
     }
 
-    public function setChannel(string $channel): static
+    public function setEmails(?array $emails): static
     {
-        $this->channel = $channel;
+        $this->emails = $emails;
 
         return $this;
     }
 
-    public function getConfig(): ?array
+    public function getSlackChannels(): ?array
     {
-        return $this->config;
+        return $this->slackChannels;
     }
 
-    public function setConfig(?array $config): static
+    public function setSlackChannels(?array $slackChannels): static
     {
-        $this->config = $config;
+        $this->slackChannels = $slackChannels;
 
         return $this;
     }
 
-    public function isEnabled(): ?bool
+    public function getWebhooks(): ?array
     {
-        return $this->enabled;
+        return $this->webhooks;
     }
 
-    public function setEnabled(bool $enabled): static
+    public function setWebhooks(?array $webhooks): static
     {
-        $this->enabled = $enabled;
+        $this->webhooks = $webhooks;
 
         return $this;
     }
 
-    public function getCreatedAt(): ?\DateTimeImmutable
-    {
-        return $this->createdAt;
-    }
+    
 }
