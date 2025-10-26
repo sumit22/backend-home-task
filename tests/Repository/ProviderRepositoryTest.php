@@ -40,8 +40,7 @@ class ProviderRepositoryTest extends KernelTestCase
     {
         $provider = new Provider();
         $provider->setName('Snyk');
-        $provider->setType('security_scanner');
-        $provider->setEnabled(true);
+        $provider->setCode('sca_snyk');
         $provider->setConfig(['api_url' => 'https://api.snyk.io']);
 
         $this->entityManager->persist($provider);
@@ -51,8 +50,7 @@ class ProviderRepositoryTest extends KernelTestCase
 
         $this->assertNotNull($foundProvider);
         $this->assertEquals('Snyk', $foundProvider->getName());
-        $this->assertEquals('security_scanner', $foundProvider->getType());
-        $this->assertTrue($foundProvider->isEnabled());
+        $this->assertEquals('sca_snyk', $foundProvider->getCode());
         $this->assertNotNull($foundProvider->getCreatedAt());
     }
 
@@ -60,8 +58,7 @@ class ProviderRepositoryTest extends KernelTestCase
     {
         $provider = new Provider();
         $provider->setName('GitHub Advanced Security');
-        $provider->setType('security_scanner');
-        $provider->setEnabled(true);
+        $provider->setCode('sca_github');
 
         $this->entityManager->persist($provider);
         $this->entityManager->flush();
@@ -74,44 +71,38 @@ class ProviderRepositoryTest extends KernelTestCase
 
     public function testCanFindEnabledProviders(): void
     {
-        $enabledProvider = new Provider();
-        $enabledProvider->setName('Snyk');
-        $enabledProvider->setType('security_scanner');
-        $enabledProvider->setEnabled(true);
+        $provider1 = new Provider();
+        $provider1->setName('Snyk');
+        $provider1->setCode('sca_snyk');
 
-        $disabledProvider = new Provider();
-        $disabledProvider->setName('Checkmarx');
-        $disabledProvider->setType('security_scanner');
-        $disabledProvider->setEnabled(false);
+        $provider2 = new Provider();
+        $provider2->setName('Checkmarx');
+        $provider2->setCode('sca_checkmarx');
 
-        $this->entityManager->persist($enabledProvider);
-        $this->entityManager->persist($disabledProvider);
+        $this->entityManager->persist($provider1);
+        $this->entityManager->persist($provider2);
         $this->entityManager->flush();
 
-        $enabledProviders = $this->repository->findBy(['enabled' => true]);
+        $providers = $this->repository->findAll();
 
-        $this->assertCount(1, $enabledProviders);
-        $this->assertEquals('Snyk', $enabledProviders[0]->getName());
+        $this->assertCount(2, $providers);
     }
 
     public function testCanUpdateProvider(): void
     {
         $provider = new Provider();
         $provider->setName('Original Name');
-        $provider->setType('security_scanner');
-        $provider->setEnabled(true);
+        $provider->setCode('sca_original');
 
         $this->entityManager->persist($provider);
         $this->entityManager->flush();
 
         $provider->setName('Updated Name');
-        $provider->setEnabled(false);
         $this->entityManager->flush();
 
         $updatedProvider = $this->repository->find($provider->getId());
 
         $this->assertEquals('Updated Name', $updatedProvider->getName());
-        $this->assertFalse($updatedProvider->isEnabled());
         $this->assertNotNull($updatedProvider->getUpdatedAt());
     }
 
@@ -119,8 +110,7 @@ class ProviderRepositoryTest extends KernelTestCase
     {
         $provider = new Provider();
         $provider->setName('To Be Deleted');
-        $provider->setType('security_scanner');
-        $provider->setEnabled(true);
+        $provider->setCode('sca_deleted');
 
         $this->entityManager->persist($provider);
         $this->entityManager->flush();

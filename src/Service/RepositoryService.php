@@ -5,14 +5,14 @@ namespace App\Service;
 use App\Entity\Repository as RepositoryEntity;
 use App\Entity\NotificationSetting;
 use Doctrine\ORM\EntityManagerInterface;
-use Doctrine\Persistence\ObjectRepository;
+use Doctrine\ORM\EntityRepository;
 use App\Contract\Service\RepositoryServiceInterface;
 
 class RepositoryService implements RepositoryServiceInterface
 {
     private EntityManagerInterface $em;
-    private ObjectRepository $repoRepo;
-    private ObjectRepository $notifRepo;
+    private EntityRepository $repoRepo;
+    private EntityRepository $notifRepo;
 
     public function __construct(EntityManagerInterface $em)
     {

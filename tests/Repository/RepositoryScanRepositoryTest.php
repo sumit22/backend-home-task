@@ -29,8 +29,7 @@ class RepositoryScanRepositoryTest extends KernelTestCase
         // Create test provider
         $this->testProvider = new Provider();
         $this->testProvider->setName('Test Provider');
-        $this->testProvider->setType('security_scanner');
-        $this->testProvider->setEnabled(true);
+        $this->testProvider->setCode('sca_test');
         $this->entityManager->persist($this->testProvider);
 
         // Create test repository
