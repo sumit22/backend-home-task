@@ -3,59 +3,72 @@
 namespace App\MessageHandler;
 
 use App\Message\StartProviderScanMessage;
-use App\Service\ProviderManagerInterface;
+use App\Contract\Service\ProviderManagerInterface;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Component\Messenger\Attribute\AsMessageHandler;
+use App\Service\Provider\ProviderManager;
+use League\Flysystem\FilesystemOperator;
+use Psr\Log\LoggerInterface;
 
-// TODO: Uncomment when ProviderManagerInterface is implemented
-// #[AsMessageHandler]
-class StartProviderScanHandler
+
+#[AsMessageHandler]
+final class StartProviderScanHandler
 {
     public function __construct(
-        //private ProviderManagerInterface $providerManager,
-        private EntityManagerInterface $em
+        private ProviderManager $providerManager,
+        private EntityManagerInterface $em,
+        private FilesystemOperator $filesystem,
+        private LoggerInterface $logger
     ) {}
 
-    public function __invoke(StartProviderScanMessage $msg): void
+    public function __invoke(StartProviderScanMessage $message): void
     {
-        $scanId = $msg->getScanId();
+        $scan = $this->em->getRepository(\App\Entity\RepositoryScan::class)
+            ->find($message->scanId);
 
-        $scan = $this->em->getRepository(\App\Entity\RepositoryScan::class)->find($scanId);
         if (!$scan) {
-            // Optionally log or throw, but never hard fail worker
+            $this->logger->warning('RepositoryScan not found', ['scanId' => $message->scanId]);
             return;
         }
 
-        // Retrieve provider adapter dynamically
-        $adapter = $this->providerManager->getAdapter($scan->getProviderSelection());
+        $providerCode = $scan->getProviderSelection() ?? 'sca_debricked';
+        $adapter = $this->providerManager->getAdapter($providerCode);
+
         if (!$adapter) {
-            // log: unknown provider
             $scan->setStatus('failed');
             $this->em->flush();
+            $this->logger->error('No provider adapter found', ['provider' => $providerCode]);
             return;
         }
 
-        // Gather file paths for upload
-        $paths = [];
-        foreach ($scan->getFiles() as $file) {
-            $paths[] = $file->getFilePath();
+        // Prepare S3 temporary files
+        $localPaths = [];
+        foreach ($scan->getFiles() as $fileEntity) {
+            $path = sys_get_temp_dir() . '/' . basename($fileEntity->getFilePath());
+            $stream = $this->filesystem->readStream($fileEntity->getFilePath());
+            if (!$stream) continue;
+            file_put_contents($path, stream_get_contents($stream));
+            fclose($stream);
+            $localPaths[] = $path;
         }
 
-        // Delegate upload & scan creation to adapter
         try {
-            $result = $adapter->uploadAndCreateScan($paths, [
-                'repository' => $scan->getRepository()->getId(),
-                'branch' => $scan->getBranch(),
+            $result = $adapter->uploadAndCreateScan($scan, $localPaths, [
+                'repositoryName' => $scan->getRepository()->getName(),
+                'branchName' => $scan->getBranch(),
+                'repositoryUrl' => $scan->getRepository()->getUrl(),
+                'author' => $scan->getRequestedBy(),
             ]);
-
-            // result might be ['provider_scan_id' => '...', 'files' => [...]]
-            // Persist mapping in external_mapping (not shown)
             $scan->setStatus('running');
             $this->em->flush();
         } catch (\Throwable $e) {
+            $this->logger->error('Provider upload failed', ['error' => $e->getMessage()]);
             $scan->setStatus('failed');
             $this->em->flush();
-            // log exception message for observability
+        } finally {
+            foreach ($localPaths as $p) {
+                @unlink($p);
+            }
         }
     }
 }

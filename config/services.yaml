@@ -63,7 +63,7 @@ services:
             $http: '@http_client'
             $mapping: '@App\Service\ExternalMappingService'
             $logger: '@logger'
-            $token: '%env(DEBRICKED_API_TOKEN)%'
+            $auth: '@App\Service\Provider\DebrickedAuthService'
             $baseUrl: '%env(DEBRICKED_API_BASE)%'
         tags: ['app.provider.adapter']
 
@@ -81,3 +81,14 @@ services:
     App\Service\ExternalMappingService:
         arguments:
             $conn: '@doctrine.dbal.default_connection'
+
+    # Debricked Auth Service
+    App\Service\Provider\DebrickedAuthService:
+        arguments:
+            $http: '@http_client'
+            $username: '%env(DEBRICKED_USERNAME)%'
+            $password: '%env(DEBRICKED_PASSWORD)%'
+            $refreshToken: '%env(DEBRICKED_REFRESH_TOKEN)%'
+            $baseUrl: '%env(DEBRICKED_API_BASE)%'
+            $logger: '@logger'
+
