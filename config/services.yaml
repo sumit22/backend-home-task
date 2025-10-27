@@ -23,6 +23,14 @@ services:
     # add more service definitions when explicit configuration is needed
     # please note that last definitions always *replace* previous ones
 
+    # Scan Service
+    App\Contract\Service\ScanServiceInterface:
+        alias: App\Service\ScanService
+
+    App\Service\ScanService:
+        arguments:
+            $filesystem: '@s3.storage'
+
     # Repository Service
     App\Contract\Service\RepositoryServiceInterface:
         alias: App\Service\RepositoryService
