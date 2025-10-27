@@ -1,0 +1,11 @@
+.git
+.github
+.idea
+.vscode
+var/
+vendor/
+coverage/
+.env.local
+.env.*.local
+*.log
+.phpunit.result.cache

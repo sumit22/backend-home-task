@@ -113,3 +113,53 @@ mysql -h 127.0.0.1 -P 3307 -u root -p rule_engine
 docker compose exec db mysql -u root -p rule_engine
 # Password: docker
 ```
+
+## Testing
+
+The application uses PHPUnit for testing with PCOV for code coverage reporting.
+
+### Running Tests
+
+```bash
+# Run all tests
+docker compose exec php php bin/phpunit
+
+# Run specific test file
+docker compose exec php php bin/phpunit tests/Service/ScanServiceTest.php
+
+# Run tests with text coverage report
+docker compose exec php php bin/phpunit --coverage-text
+
+# Generate HTML coverage report
+docker compose exec php php bin/phpunit --coverage-html coverage
+# View the report by opening coverage/index.html in your browser
+```
+
+### Test Coverage
+
+Current test coverage includes:
+- **ScanService**: 100% method and line coverage (16 tests)
+- **ScanController**: 100% method and line coverage (12 tests)
+- **RepositoryService**: Comprehensive service layer tests
+
+### Docker Configuration
+
+The PHP Docker image has been customized (see `docker/php/Dockerfile`) to install PCOV extension for code coverage generation. This ensures PCOV persists across container rebuilds.
+
+## Data Fixtures
+
+The application uses Doctrine Fixtures for seeding initial data.
+
+### Loading Fixtures
+
+```bash
+# Load all fixtures (will purge existing data)
+docker compose exec php php bin/console doctrine:fixtures:load --no-interaction
+
+# Append fixtures without purging
+docker compose exec php php bin/console doctrine:fixtures:load --append
+```
+
+### Available Fixtures
+
+- **ProviderFixtures**: Seeds security scanning providers (Debricked, Snyk)

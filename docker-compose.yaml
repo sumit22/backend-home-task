@@ -72,7 +72,10 @@ services:
         restart: on-failure
 
     php:
-        image: ghcr.io/debricked/docker-image-php-xdebug:latest
+        build:
+            context: .
+            dockerfile: docker/php/Dockerfile
+        image: backend-home-task-php:latest
         environment:
             # Reference https://gist.github.com/jehaby/61a89b15571b4bceee2417106e80240d
             PHP_IDE_CONFIG: "serverName=docker.php.cli"
