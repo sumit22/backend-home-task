@@ -16,7 +16,7 @@ use Symfony\Component\Serializer\Annotation\Groups;
 #[ORM\Table(name: 'repository_scan')]
 #[ORM\Index(columns: ['repository_id'], name: 'idx_repository_scan_repo')]
 #[ORM\Index(columns: ['status'], name: 'idx_repository_scan_status')]
-#[ORM\Index(columns: ['provider_selection'], name: 'idx_repository_scan_provider')]
+#[ORM\Index(columns: ['provider_id'], name: 'idx_repository_scan_provider')]
 #[ORM\HasLifecycleCallbacks]
 class RepositoryScan
 {
@@ -35,9 +35,10 @@ class RepositoryScan
     #[Groups(['scan:read'])]
     private ?string $requestedBy = null;
 
-    #[ORM\Column(length: 128, nullable: true)]
+    #[ORM\ManyToOne(targetEntity: Provider::class)]
+    #[ORM\JoinColumn(name: 'provider_id', referencedColumnName: 'id', nullable: true, onDelete: 'SET NULL')]
     #[Groups(['scan:read'])]
-    private ?string $providerSelection = null;
+    private ?Provider $provider = null;
 
     #[ORM\Column(length: 64)]
     #[Groups(['scan:read'])]
@@ -127,14 +128,14 @@ class RepositoryScan
         return $this;
     }
 
-    public function getProviderSelection(): ?string
+    public function getProvider(): ?Provider
     {
-        return $this->providerSelection;
+        return $this->provider;
     }
 
-    public function setProviderSelection(?string $providerSelection): static
+    public function setProvider(?Provider $provider): static
     {
-        $this->providerSelection = $providerSelection;
+        $this->provider = $provider;
 
         return $this;
     }
