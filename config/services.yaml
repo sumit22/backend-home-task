@@ -31,6 +31,11 @@ services:
         arguments:
             $filesystem: '@s3.storage'
 
+    # Message Handler
+    App\MessageHandler\StartProviderScanHandler:
+        arguments:
+            $filesystem: '@s3.storage'
+
     # Repository Service
     App\Contract\Service\RepositoryServiceInterface:
         alias: App\Service\RepositoryService
@@ -52,3 +57,27 @@ services:
                 credentials:
                     key: '%env(AWS_ACCESS_KEY_ID)%'
                     secret: '%env(AWS_SECRET_ACCESS_KEY)%'
+     # -------- Provider adapters (tagged) ----------
+    App\Service\Provider\DebrickedProviderAdapter:
+        arguments:
+            $http: '@http_client'
+            $mapping: '@App\Service\ExternalMappingService'
+            $logger: '@logger'
+            $token: '%env(DEBRICKED_API_TOKEN)%'
+            $baseUrl: '%env(DEBRICKED_API_BASE)%'
+        tags: ['app.provider.adapter']
+
+    # If you have other provider adapters add them with same tag:
+    # App\Service\Provider\SnykProviderAdapter:
+    #   tags: ['app.provider.adapter']
+
+    # -------- ProviderManager: use tagged_iterator ----------
+    App\Service\Provider\ProviderManager:
+        arguments:
+            $adapters: !tagged_iterator 'app.provider.adapter'
+            $logger: '@logger'
+
+    # ExternalMappingService (DBAL)
+    App\Service\ExternalMappingService:
+        arguments:
+            $conn: '@doctrine.dbal.default_connection'
