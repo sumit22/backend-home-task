@@ -3,9 +3,11 @@
 namespace App\MessageHandler;
 
 use App\Message\StartProviderScanMessage;
+use App\Message\PollProviderScanResultsMessage;
 use App\Contract\Service\ProviderManagerInterface;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Component\Messenger\Attribute\AsMessageHandler;
+use Symfony\Component\Messenger\MessageBusInterface;
 use App\Service\Provider\ProviderManager;
 use League\Flysystem\FilesystemOperator;
 use Psr\Log\LoggerInterface;
@@ -18,6 +20,7 @@ final class StartProviderScanHandler
         private ProviderManager $providerManager,
         private EntityManagerInterface $em,
         private FilesystemOperator $filesystem,
+        private MessageBusInterface $bus,
         private LoggerInterface $logger
     ) {}
 
@@ -81,6 +84,11 @@ final class StartProviderScanHandler
             ]);
             $scan->setStatus('running');
             $this->em->flush();
+            
+            // Dispatch polling message to check scan results
+            $this->logger->info('Dispatching poll message for scan', ['scanId' => $scan->getId()]);
+            $this->bus->dispatch(new PollProviderScanResultsMessage($scan->getId()));
+            
         } catch (\Throwable $e) {
             $this->logger->error('Provider upload failed', [
                 'error' => $e->getMessage(),

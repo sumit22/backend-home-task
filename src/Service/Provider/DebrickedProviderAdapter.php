@@ -264,6 +264,53 @@ final class DebrickedProviderAdapter implements ProviderAdapterInterface
     }
 
 
+    /**
+     * Poll scan status from Debricked
+     * 
+     * @param string $ciUploadId The CI upload ID from Debricked
+     * @return array Status data including progress, vulnerabilities, etc.
+     */
+    public function pollScanStatus(string $ciUploadId): array
+    {
+        $jwt = $this->auth->getJwtToken();
+        
+        $statusUrl = "{$this->baseUrl}/open/ci/upload/status?ciUploadId={$ciUploadId}";
+        
+        $ch = curl_init($statusUrl);
+        curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+        curl_setopt($ch, CURLOPT_HTTPHEADER, [
+            "Authorization: Bearer {$jwt}",
+        ]);
+        
+        $responseBody = curl_exec($ch);
+        $statusCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+        $error = curl_error($ch);
+        curl_close($ch);
+        
+        if ($error) {
+            throw new \RuntimeException("cURL error on poll status: {$error}");
+        }
+        
+        if ($statusCode >= 400) {
+            throw new \RuntimeException("Debricked poll status failed with status {$statusCode}: {$responseBody}");
+        }
+        
+        $data = json_decode($responseBody, true);
+        if (json_last_error() !== JSON_ERROR_NONE) {
+            throw new \RuntimeException("Failed to parse Debricked status response: " . json_last_error_msg());
+        }
+        
+        file_put_contents('/tmp/debricked-poll-status.txt', "Status: $statusCode\nResponse:\n" . print_r($data, true));
+        
+        return [
+            'progress' => $data['progress'] ?? 0,
+            'scan_completed' => ($data['progress'] ?? 0) >= 100,
+            'vulnerabilities_found' => $data['vulnerabilitiesFound'] ?? 0,
+            'details_url' => $data['detailsUrl'] ?? null,
+            'raw' => $data,
+        ];
+    }
+
     public function normalizeScanResult(array $raw): array
     {
         return [
