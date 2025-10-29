@@ -133,3 +133,24 @@ services:
             - backend
             - frontend
 
+    messenger-worker:
+        build:
+            context: .
+            dockerfile: docker/php/Dockerfile
+        image: backend-home-task-php:latest
+        command: php bin/console messenger:consume async --time-limit=3600 --memory-limit=128M --limit=100
+        volumes:
+            - ./:/var/www/html
+        depends_on:
+            - db
+            - rabbitmq
+            - mailhog
+            - localstack
+        restart: always
+        user: root
+        networks:
+            - backend
+        environment:
+            PHP_IDE_CONFIG: "serverName=docker.php.cli"
+            IN_DOCKER: "true"
+
