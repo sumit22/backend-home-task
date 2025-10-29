@@ -15,7 +15,7 @@ class DebrickedAuthServiceTest extends TestCase
     private string $username = 'test-user';
     private string $password = 'test-password';
     private string $refreshToken = 'test-refresh-token';
-    private string $baseUrl = 'https://debricked.com';
+    private string $baseUrl = 'https://debricked.com/api';
 
     protected function setUp(): void
     {
@@ -298,7 +298,7 @@ class DebrickedAuthServiceTest extends TestCase
 
     public function testGetJwtTokenWithDifferentBaseUrl()
     {
-        $customBaseUrl = 'https://custom-debricked.com';
+        $customBaseUrl = 'https://custom-debricked.com/api';
         
         $response = $this->createMock(ResponseInterface::class);
         $response->expects($this->once())

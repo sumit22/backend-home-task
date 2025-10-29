@@ -30,7 +30,7 @@ class ScanService implements ScanServiceInterface
             throw new \InvalidArgumentException("Repository not found");
         }
 
-        $provider = null;
+        // Validate provider code if provided
         if ($providerCode) {
             $provider = $this->em->getRepository(Provider::class)->findOneBy(['code' => $providerCode]);
             if (!$provider) {
@@ -41,7 +41,7 @@ class ScanService implements ScanServiceInterface
         $scan = new RepositoryScan();
         $scan->setRepository($repo);
         $scan->setBranch($branch);
-        $scan->setProvider($provider);
+        $scan->setProviderCode($providerCode);
         $scan->setRequestedBy($requestedBy);
         $this->em->persist($scan);
         $this->em->flush();
@@ -123,15 +123,20 @@ class ScanService implements ScanServiceInterface
         if (!$scan) return null;
 
         $files = $this->em->getRepository(FilesInScan::class)->findBy(['repositoryScan' => $scan]);
+        
+        $repository = $scan->getRepository();
+        $repositoryId = $repository ? ($repository->getId()?->toRfc4122() ?? $repository->getId()) : null;
+        
         return [
+            'repository_id' => $repositoryId,
             'scan' => [
-                'id' => $scan->getId(),
+                'id' => $scan->getId()?->toRfc4122() ?? $scan->getId(),
                 'status' => $scan->getStatus(),
-                'provider' => $scan->getProvider()?->getCode(),
+                'provider_code' => $scan->getProviderCode(),
                 'branch' => $scan->getBranch(),
             ],
             'files' => array_map(fn(FilesInScan $f) => [
-                'id' => $f->getId(),
+                'id' => $f->getId()?->toRfc4122() ?? $f->getId(),
                 'name' => $f->getFileName(),
                 'path' => $f->getFilePath(),
                 'size' => $f->getSize(),

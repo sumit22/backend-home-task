@@ -33,7 +33,7 @@ class ScanController extends AbstractController
             'repository_id' => $scan->getRepository()->getId(),
             'branch' => $scan->getBranch(),
             'status' => $scan->getStatus(),
-            'provider' => $scan->getProvider(),
+            'provider_code' => $scan->getProviderCode(),
         ], Response::HTTP_CREATED);
     }
 
@@ -76,5 +76,26 @@ class ScanController extends AbstractController
         }
 
         return $this->json(['scan_id' => $scanId, 'status' => 'queued'], Response::HTTP_ACCEPTED);
+    }
+
+    #[Route('/repositories/{repoId}/scans/{scanId}', name: 'get_scan_status', methods: ['GET'])]
+    public function getScanStatus(string $repoId, string $scanId): JsonResponse
+    {
+        try {
+            $summary = $this->scanService->getScanSummary($scanId);
+        } catch (\InvalidArgumentException $e) {
+            return $this->json(['error' => $e->getMessage()], Response::HTTP_NOT_FOUND);
+        }
+
+        if (!$summary) {
+            return $this->json(['error' => 'Scan not found'], Response::HTTP_NOT_FOUND);
+        }
+
+        // Verify the scan belongs to the specified repository
+        if ($summary['repository_id'] !== $repoId) {
+            return $this->json(['error' => 'Scan does not belong to this repository'], Response::HTTP_NOT_FOUND);
+        }
+
+        return $this->json($summary, Response::HTTP_OK);
     }
 }

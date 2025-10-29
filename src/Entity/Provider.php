@@ -35,12 +35,6 @@ class Provider
     
 
     /**
-     * @var Collection<int, Integration>
-     */
-    #[ORM\OneToMany(targetEntity: Integration::class, mappedBy: 'provider')]
-    private Collection $integrations;
-
-    /**
      * @var Collection<int, ApiCredential>
      */
     #[ORM\OneToMany(targetEntity: ApiCredential::class, mappedBy: 'provider')]
@@ -49,7 +43,6 @@ class Provider
     public function __construct()
     {
         $this->initializeId();
-        $this->integrations = new ArrayCollection();
         $this->apiCredentials = new ArrayCollection();
     }
 
@@ -92,35 +85,6 @@ class Provider
     }
 
     
-
-    /**
-     * @return Collection<int, Integration>
-     */
-    public function getIntegrations(): Collection
-    {
-        return $this->integrations;
-    }
-
-    public function addIntegration(Integration $integration): static
-    {
-        if (!$this->integrations->contains($integration)) {
-            $this->integrations->add($integration);
-            $integration->setProvider($this);
-        }
-
-        return $this;
-    }
-
-    public function removeIntegration(Integration $integration): static
-    {
-        if ($this->integrations->removeElement($integration)) {
-            if ($integration->getProvider() === $this) {
-                $integration->setProvider(null);
-            }
-        }
-
-        return $this;
-    }
 
     /**
      * @return Collection<int, ApiCredential>

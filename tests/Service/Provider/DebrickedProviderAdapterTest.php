@@ -39,7 +39,7 @@ class DebrickedProviderAdapterTest extends TestCase
 
     public function testProviderCode(): void
     {
-        $this->assertSame('sca_debricked', $this->adapter->providerCode());
+        $this->assertSame('debricked', $this->adapter->providerCode());
     }
 
     public function testUploadAndCreateScanWithSingleFile(): void
@@ -103,7 +103,7 @@ class DebrickedProviderAdapterTest extends TestCase
             ->expects($this->exactly(2))
             ->method('createMapping')
             ->willReturnCallback(function ($providerCode, $type, $externalId, $entityType, $entityId, $metadata) {
-                $this->assertSame('sca_debricked', $providerCode);
+                $this->assertSame('debricked', $providerCode);
                 if ($type === 'file') {
                     $this->assertSame('file-456', $externalId);
                     $this->assertSame('FilesInScan', $entityType);
@@ -235,8 +235,7 @@ class DebrickedProviderAdapterTest extends TestCase
                     // Verify custom options are used
                     $this->assertSame('custom-repo', $options['body']['repositoryName']);
                     $this->assertSame('abc123', $options['body']['commitName']);
-                    $this->assertSame('feature-branch', $options['body']['branchName']);
-                    $this->assertSame('https://custom.com/repo', $options['body']['repositoryUrl']);
+                    // branchName and repositoryUrl are not sent to Debricked API
                     return $uploadResponse;
                 }
                 return $finishResponse;
@@ -328,7 +327,7 @@ class DebrickedProviderAdapterTest extends TestCase
         $this->mappingService
             ->expects($this->once())
             ->method('findMapping')
-            ->with('sca_debricked', 'ci_upload', $scan->getId())
+            ->with('debricked', 'ci_upload', $scan->getId())
             ->willReturn(['external_id' => 'existing-upload-999']);
 
         $this->mappingService

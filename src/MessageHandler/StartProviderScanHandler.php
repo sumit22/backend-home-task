@@ -31,7 +31,7 @@ final class StartProviderScanHandler
             return;
         }
 
-        $providerCode = $scan->getProviderSelection() ?? 'sca_debricked';
+        $providerCode = $scan->getProviderCode() ?? 'debricked';
         $adapter = $this->providerManager->getAdapter($providerCode);
 
         if (!$adapter) {
@@ -41,28 +41,62 @@ final class StartProviderScanHandler
             return;
         }
 
-        // Prepare S3 temporary files
+        // Download files from S3 to temp directory with original filenames
         $localPaths = [];
-        foreach ($scan->getFiles() as $fileEntity) {
-            $path = sys_get_temp_dir() . '/' . basename($fileEntity->getFilePath());
+        $fileMapping = []; // Map temp path to original filename
+        
+        foreach ($scan->getFilesInScans() as $fileEntity) {
+            $originalFilename = $fileEntity->getFileName();
+            // Use original filename with unique prefix to avoid conflicts
+            $tempPath = sys_get_temp_dir() . '/' . uniqid() . '-' . $originalFilename;
+            
             $stream = $this->filesystem->readStream($fileEntity->getFilePath());
-            if (!$stream) continue;
-            file_put_contents($path, stream_get_contents($stream));
+            if (!$stream) {
+                $this->logger->warning('Could not read file from S3', [
+                    'path' => $fileEntity->getFilePath(),
+                    'filename' => $originalFilename
+                ]);
+                continue;
+            }
+            
+            file_put_contents($tempPath, stream_get_contents($stream));
             fclose($stream);
-            $localPaths[] = $path;
+            
+            $localPaths[] = $tempPath;
+            $fileMapping[$tempPath] = $originalFilename;
+        }
+        
+        if (empty($localPaths)) {
+            $this->logger->error('No files could be read from S3');
+            $scan->setStatus('failed');
+            $this->em->flush();
+            return;
         }
 
         try {
             $result = $adapter->uploadAndCreateScan($scan, $localPaths, [
                 'repositoryName' => $scan->getRepository()->getName(),
-                'branchName' => $scan->getBranch(),
-                'repositoryUrl' => $scan->getRepository()->getUrl(),
                 'author' => $scan->getRequestedBy(),
+                'fileMapping' => $fileMapping, // Pass original filenames
             ]);
             $scan->setStatus('running');
             $this->em->flush();
         } catch (\Throwable $e) {
-            $this->logger->error('Provider upload failed', ['error' => $e->getMessage()]);
+            $this->logger->error('Provider upload failed', [
+                'error' => $e->getMessage(),
+                'exception_class' => get_class($e),
+                'file' => $e->getFile(),
+                'line' => $e->getLine(),
+            ]);
+            
+            file_put_contents('/tmp/message-handler-exception.txt', 
+                "Exception: " . get_class($e) . "\n" . 
+                "Message: " . $e->getMessage() . "\n" . 
+                "File: " . $e->getFile() . "\n" . 
+                "Line: " . $e->getLine() . "\n" . 
+                "Trace:\n" . $e->getTraceAsString()
+            );
+            
             $scan->setStatus('failed');
             $this->em->flush();
         } finally {

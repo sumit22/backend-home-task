@@ -13,7 +13,7 @@ use Symfony\Component\Serializer\Annotation\Groups;
 #[ORM\Entity(repositoryClass: IntegrationRepository::class)]
 #[ORM\Table(name: 'integration')]
 #[ORM\HasLifecycleCallbacks]
-#[ORM\Index(columns: ['provider_id'], name: 'idx_integration_provider')]
+#[ORM\Index(columns: ['provider_code'], name: 'idx_integration_provider')]
 #[ORM\Index(columns: ['linked_entity_type', 'linked_entity_id'], name: 'idx_integration_linked')]
 #[ORM\Index(columns: ['type'], name: 'idx_integration_type')]
 class Integration
@@ -21,10 +21,9 @@ class Integration
     use HasTimeStamps;
     use HasId;
 
-    #[ORM\ManyToOne(targetEntity: Provider::class, inversedBy: 'integrations')]
-    #[ORM\JoinColumn(nullable: false, onDelete: 'CASCADE')]
+    #[ORM\Column(length: 64, nullable: false)]
     #[Groups(['integration:read'])]
-    private ?Provider $provider = null;
+    private ?string $providerCode = null;
 
     #[ORM\Column(length: 1024)]
     #[Groups(['integration:read'])]
@@ -57,14 +56,14 @@ class Integration
 
     
 
-    public function getProvider(): ?Provider
+    public function getProviderCode(): ?string
     {
-        return $this->provider;
+        return $this->providerCode;
     }
 
-    public function setProvider(?Provider $provider): static
+    public function setProviderCode(?string $providerCode): static
     {
-        $this->provider = $provider;
+        $this->providerCode = $providerCode;
 
         return $this;
     }

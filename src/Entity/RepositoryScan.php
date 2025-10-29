@@ -16,7 +16,7 @@ use Symfony\Component\Serializer\Annotation\Groups;
 #[ORM\Table(name: 'repository_scan')]
 #[ORM\Index(columns: ['repository_id'], name: 'idx_repository_scan_repo')]
 #[ORM\Index(columns: ['status'], name: 'idx_repository_scan_status')]
-#[ORM\Index(columns: ['provider_id'], name: 'idx_repository_scan_provider')]
+#[ORM\Index(columns: ['provider_code'], name: 'idx_repository_scan_provider')]
 #[ORM\HasLifecycleCallbacks]
 class RepositoryScan
 {
@@ -35,10 +35,9 @@ class RepositoryScan
     #[Groups(['scan:read'])]
     private ?string $requestedBy = null;
 
-    #[ORM\ManyToOne(targetEntity: Provider::class)]
-    #[ORM\JoinColumn(name: 'provider_id', referencedColumnName: 'id', nullable: true, onDelete: 'SET NULL')]
+    #[ORM\Column(length: 64, nullable: true)]
     #[Groups(['scan:read'])]
-    private ?Provider $provider = null;
+    private ?string $providerCode = null;
 
     #[ORM\Column(length: 64)]
     #[Groups(['scan:read'])]
@@ -128,14 +127,14 @@ class RepositoryScan
         return $this;
     }
 
-    public function getProvider(): ?Provider
+    public function getProviderCode(): ?string
     {
-        return $this->provider;
+        return $this->providerCode;
     }
 
-    public function setProvider(?Provider $provider): static
+    public function setProviderCode(?string $providerCode): static
     {
-        $this->provider = $provider;
+        $this->providerCode = $providerCode;
 
         return $this;
     }

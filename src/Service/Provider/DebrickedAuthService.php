@@ -28,7 +28,7 @@ class DebrickedAuthService implements DebrickedAuthServiceInterface
         // Prefer refresh_token flow if available
         try {
             $this->logger->debug('Refreshing Debricked JWT using refresh_token');
-            $resp = $this->http->request('POST', "{$this->baseUrl}/api/login_refresh", [
+            $resp = $this->http->request('POST', "{$this->baseUrl}/login_refresh", [
                 'body' => ['refresh_token' => $this->refreshToken],
             ]);
             $data = $resp->toArray(false);
@@ -42,7 +42,7 @@ class DebrickedAuthService implements DebrickedAuthServiceInterface
         }
 
         // Fallback: username/password
-        $resp = $this->http->request('POST', "{$this->baseUrl}/api/login_check", [
+        $resp = $this->http->request('POST', "{$this->baseUrl}/login_check", [
             'body' => [
                 '_username' => $this->username,
                 '_password' => $this->password,
