@@ -140,7 +140,6 @@ class EntityAndRepositoryTest extends KernelTestCase
         $this->assertSame($config, $provider->getConfig());
         
         // Test collections
-        $this->assertCount(0, $provider->getIntegrations());
         $this->assertCount(0, $provider->getApiCredentials());
     }
 
@@ -183,9 +182,8 @@ class EntityAndRepositoryTest extends KernelTestCase
         $scan->setRepository($repo);
         $this->assertSame($repo, $scan->getRepository());
         
-        $provider = new Provider();
-        $scan->setProvider($provider);
-        $this->assertSame($provider, $scan->getProvider());
+        $scan->setProviderCode('debricked');
+        $this->assertSame('debricked', $scan->getProviderCode());
         
         // Test collections
         $this->assertCount(0, $scan->getFilesInScans());
@@ -288,10 +286,9 @@ class EntityAndRepositoryTest extends KernelTestCase
         $integration->setRawPayload($payload);
         $this->assertSame($payload, $integration->getRawPayload());
         
-        // Test relationship
-        $provider = new Provider();
-        $integration->setProvider($provider);
-        $this->assertSame($provider, $integration->getProvider());
+        // Test provider_code
+        $integration->setProviderCode('debricked');
+        $this->assertSame('debricked', $integration->getProviderCode());
     }
 
     public function testApiCredentialEntity(): void

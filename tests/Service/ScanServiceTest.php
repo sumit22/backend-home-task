@@ -88,7 +88,7 @@ class ScanServiceTest extends TestCase
         $this->assertEquals($repo, $result->getRepository());
         $this->assertEquals('main', $result->getBranch());
         $this->assertEquals('test-user', $result->getRequestedBy());
-        $this->assertNull($result->getProvider());
+        $this->assertNull($result->getProviderCode());
     }
 
     public function testCreateScanWithProvider()
@@ -121,8 +121,7 @@ class ScanServiceTest extends TestCase
         $result = $this->service->createScan('repo-id', 'main', 'snyk', 'test-user');
 
         $this->assertInstanceOf(RepositoryScan::class, $result);
-        $this->assertEquals($provider, $result->getProvider());
-        $this->assertEquals('snyk', $result->getProvider()->getCode());
+        $this->assertEquals('snyk', $result->getProviderCode());
     }
 
     public function testCreateScanThrowsExceptionWhenProviderNotFound()
@@ -367,14 +366,10 @@ class ScanServiceTest extends TestCase
 
     public function testGetScanSummaryReturnsArrayWithScanAndFiles()
     {
-        $provider = new Provider();
-        $provider->setCode('snyk');
-        $provider->setName('Snyk');
-
         $scan = new RepositoryScan();
         $scan->setBranch('main');
         $scan->setStatus('completed');
-        $scan->setProvider($provider);
+        $scan->setProviderCode('snyk');
 
         $file1 = new FilesInScan();
         $file1->setFileName('package.json');
@@ -405,7 +400,7 @@ class ScanServiceTest extends TestCase
         $this->assertArrayHasKey('files', $result);
 
         $this->assertEquals('completed', $result['scan']['status']);
-        $this->assertEquals('snyk', $result['scan']['provider']);
+        $this->assertEquals('snyk', $result['scan']['provider_code']);
         $this->assertEquals('main', $result['scan']['branch']);
 
         $this->assertCount(2, $result['files']);
@@ -420,7 +415,7 @@ class ScanServiceTest extends TestCase
         $scan = new RepositoryScan();
         $scan->setBranch('main');
         $scan->setStatus('pending');
-        $scan->setProvider(null);
+        $scan->setProviderCode(null);
 
         $this->scanRepo->expects($this->once())
             ->method('find')
@@ -435,7 +430,7 @@ class ScanServiceTest extends TestCase
         $result = $this->service->getScanSummary('scan-id');
 
         $this->assertIsArray($result);
-        $this->assertNull($result['scan']['provider']);
+        $this->assertNull($result['scan']['provider_code']);
         $this->assertCount(0, $result['files']);
     }
 }

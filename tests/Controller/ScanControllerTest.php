@@ -20,14 +20,10 @@ class ScanControllerTest extends WebTestCase
         $repo->setName('test-repo');
         $repo->setUrl('https://github.com/test/repo');
 
-        $provider = new Provider();
-        $provider->setCode('snyk');
-        $provider->setName('Snyk');
-
         $scan = new RepositoryScan();
         $scan->setRepository($repo);
         $scan->setBranch('main');
-        $scan->setProvider($provider);
+        $scan->setProviderCode('snyk');
         $scan->setRequestedBy('test-user');
         $scan->setStatus('pending');
 
@@ -60,7 +56,7 @@ class ScanControllerTest extends WebTestCase
         $this->assertArrayHasKey('repository_id', $data);
         $this->assertArrayHasKey('branch', $data);
         $this->assertArrayHasKey('status', $data);
-        $this->assertArrayHasKey('provider', $data);
+        $this->assertArrayHasKey('provider_code', $data);
         $this->assertEquals('main', $data['branch']);
         $this->assertEquals('pending', $data['status']);
     }
