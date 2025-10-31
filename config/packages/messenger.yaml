@@ -13,12 +13,23 @@ framework:
                     max_retries: 3
                     delay: 1000
                     multiplier: 2
+            scan_status:
+                dsn: '%env(MESSENGER_TRANSPORT_DSN)%'
+                options:
+                    auto_setup: true
+                    queues:
+                        repository_scan_status: ~
+                retry_strategy:
+                    max_retries: 5
+                    delay: 1000
+                    multiplier: 2
             failed: 'doctrine://default?queue_name=failed'
 
         routing:
             # Route your messages to the transports
             'App\Message\StartProviderScanMessage': async
             'App\Message\PollProviderScanResultsMessage': async
+            'App\Message\RepositoryScanStatusChangedMessage': scan_status
 
 # when@test:
 #    framework:

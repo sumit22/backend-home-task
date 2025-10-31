@@ -19,11 +19,14 @@ networks:
         driver: bridge
 
 services:
-    mailhog:
-        image: mailhog/mailhog:v1.0.1
+    mailpit:
+        image: axllent/mailpit:latest
         ports:
             - "1025:1025"
             - "8025:8025"
+        environment:
+            MP_SMTP_AUTH_ACCEPT_ANY: 1
+            MP_SMTP_AUTH_ALLOW_INSECURE: 1
         networks:
             - backend
 
@@ -97,7 +100,7 @@ services:
         depends_on:
             - db
             - rabbitmq
-            - mailhog
+            - mailpit
             - localstack
         entrypoint:
             - /bin/sh
@@ -138,13 +141,15 @@ services:
             context: .
             dockerfile: docker/php/Dockerfile
         image: backend-home-task-php:latest
-        command: php bin/console messenger:consume async --time-limit=3600 --memory-limit=128M --limit=100
+        command: >
+            php bin/console messenger:consume async scan_status
+            --time-limit=3600 --memory-limit=128M --limit=100
         volumes:
             - ./:/var/www/html
         depends_on:
             - db
             - rabbitmq
-            - mailhog
+            - mailpit
             - localstack
         restart: always
         user: root
@@ -153,4 +158,5 @@ services:
         environment:
             PHP_IDE_CONFIG: "serverName=docker.php.cli"
             IN_DOCKER: "true"
+
 
