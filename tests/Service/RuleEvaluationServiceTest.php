@@ -230,6 +230,24 @@ class RuleEvaluationServiceTest extends TestCase
         $this->service->evaluateAndNotify($scan);
     }
 
+    public function testUsesRepositorySpecificEmails(): void
+    {
+        $scan = $this->createCompletedScanWithNotificationSettings(
+            15,
+            ['security@example.com', 'team@example.com']
+        );
+        $rule = $this->createVulnerabilityRule('global', 10);
+        
+        $this->ruleRepository->method('findActiveGlobalRules')
+            ->willReturn([$rule]);
+
+        // Should send to repository-specific recipients
+        $this->notifier->expects($this->exactly(2))
+            ->method('send');
+
+        $this->service->evaluateAndNotify($scan);
+    }
+
     // ============================================================================
     // Helper Methods
     // ============================================================================
@@ -254,6 +272,24 @@ class RuleEvaluationServiceTest extends TestCase
         $scan->setProviderCode('debricked');
         $scan->setStartedAt(new \DateTime('-10 minutes'));
         $scan->setCompletedAt(new \DateTime());
+        
+        return $scan;
+    }
+
+    private function createCompletedScanWithNotificationSettings(
+        int $vulnerabilityCount,
+        array $emails = [],
+        array $slackChannels = []
+    ): RepositoryScan {
+        $scan = $this->createCompletedScan($vulnerabilityCount);
+        
+        // Add NotificationSetting to the repository
+        $notificationSetting = new \App\Entity\NotificationSetting();
+        $notificationSetting->setEmails($emails);
+        $notificationSetting->setSlackChannels($slackChannels);
+        $notificationSetting->setRepository($scan->getRepository());
+        
+        $scan->getRepository()->addNotificationSetting($notificationSetting);
         
         return $scan;
     }
