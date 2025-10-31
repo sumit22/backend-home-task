@@ -4,16 +4,40 @@ services:
 
 - RabbitMQ
 - MySQL (available locally at 3307, between Docker services at 3306)
-- MailHog (UI available locally at 8025)
+- Mailpit (UI available locally at 8025)
 - LocalStack (AWS services emulator, available locally at 4566)
 - PHP
 - Nginx (available locally at 8888, your API endpoints will accessible through here)
 
-See .env for working credentials for RabbitMQ, MySQL, MailHog, and LocalStack.
+See .env for working credentials for RabbitMQ, MySQL, Mailpit, and LocalStack.
 
 A few notes:
-- By default, emails sent through Symfony Mailer will be sent to MailHog, regardless of recipient.
+- By default, emails sent through Symfony Mailer will be sent to Mailpit, regardless of recipient.
 - LocalStack provides local AWS services (S3, SQS, SNS, DynamoDB, Lambda, Secrets Manager) for development.
+
+## Changes in Runtime
+
+### Mailpit Migration
+The application has been updated to use **Mailpit** instead of MailHog for email testing and development:
+
+- **Mailpit** is the actively maintained successor to MailHog
+- **SMTP Server**: Available at `localhost:1025` (changed from MailHog's port 1025)
+- **Web UI**: Available at `localhost:8025` (same as MailHog)
+- **Service Name**: Docker service renamed from `mailhog` to `mailpit` for clarity
+- **Benefits**: Better performance, modern UI, API access, and active maintenance
+
+To view emails sent by the application:
+1. Start the Docker environment: `docker compose up`
+2. Open `http://localhost:8025` in your browser
+3. Send test emails through the application - they'll appear in Mailpit's web interface
+
+### Notification System
+The application uses Symfony's native Notifier component for sending notifications:
+
+- **Email Notifications**: Sent via Symfony Mailer to Mailpit for development
+- **Slack Notifications**: Configured for chat-based notifications
+- **Dynamic Channels**: Notification channels are configured per rule action type
+- **Repository-Specific Settings**: Future enhancement will allow per-repository notification preferences
 
 ## How to use the Docker environment
 ### Starting the environment

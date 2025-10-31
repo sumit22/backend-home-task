@@ -20,6 +20,7 @@
         "symfony/flex": "^2",
         "symfony/framework-bundle": "7.3.*",
         "symfony/http-client": "7.3.*",
+        "symfony/mailer": "7.3.*",
         "symfony/messenger": "7.3.*",
         "symfony/mime": "7.3.*",
         "symfony/notifier": "7.3.*",
@@ -28,6 +29,7 @@
         "symfony/runtime": "7.3.*",
         "symfony/serializer": "7.3.*",
         "symfony/slack-notifier": "7.3.*",
+        "symfony/twig-bridge": "7.3.*",
         "symfony/uid": "7.3.*",
         "symfony/validator": "7.3.*",
         "symfony/yaml": "7.3.*"

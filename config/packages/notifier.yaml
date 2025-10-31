@@ -1,16 +1,18 @@
 framework:
     notifier:
-        #chatter_transports:
-        #    slack: '%env(SLACK_DSN)%'
-        #    telegram: '%env(TELEGRAM_DSN)%'
-        #texter_transports:
-        #    twilio: '%env(TWILIO_DSN)%'
-        #    nexmo: '%env(NEXMO_DSN)%'
+        # Chat transports (Slack)
+        chatter_transports:
+            slack: '%env(SLACK_DSN)%'
+        
+        # Channel policy: route notifications based on importance
+        # urgent/high -> email + Slack, medium -> email + Slack, low -> Slack only
         channel_policy:
-            # use chat/slack, chat/telegram, sms/twilio or sms/nexmo
-            urgent: ['email']
-            high: ['email']
-            medium: ['email']
-            low: ['email']
+            urgent: ['email', 'chat']   # High vulnerabilities (>50) -> both
+            high: ['email', 'chat']      # Failed/timeout scans -> both
+            medium: ['email', 'chat']    # Completed scans -> both
+            low: ['chat']                # In-progress updates -> Slack only
+        
+        # Admin recipients for notifications
         admin_recipients:
+            - { email: security@example.com }
             - { email: admin@example.com }
