@@ -2,6 +2,7 @@
 namespace App\MessageHandler;
 
 use App\Message\PollProviderScanResultsMessage;
+use App\Message\RepositoryScanStatusChangedMessage;
 use App\Service\Provider\ProviderManager;
 use App\Service\ExternalMappingService;
 use Doctrine\ORM\EntityManagerInterface;
@@ -59,6 +60,15 @@ class PollProviderScanResultsHandler
             ]);
             $scan->setStatus('failed');
             $this->em->flush();
+            
+            // Dispatch status change message for failed scan
+            $this->bus->dispatch(
+                new RepositoryScanStatusChangedMessage(
+                    $scan->getId(),
+                    'failed',
+                    'running'
+                )
+            );
             return;
         }
 
@@ -69,6 +79,15 @@ class PollProviderScanResultsHandler
             $this->logger->error('No provider adapter found', ['provider' => $providerCode]);
             $scan->setStatus('failed');
             $this->em->flush();
+            
+            // Dispatch status change message for failed scan
+            $this->bus->dispatch(
+                new RepositoryScanStatusChangedMessage(
+                    $scan->getId(),
+                    'failed',
+                    'running'
+                )
+            );
             return;
         }
 
@@ -127,6 +146,15 @@ class PollProviderScanResultsHandler
                     'vulnerabilities' => $statusData['vulnerabilities_found'],
                     'detailsUrl' => $statusData['details_url']
                 ]);
+                
+                // Dispatch status change message to trigger rule evaluation and notifications
+                $this->bus->dispatch(
+                    new RepositoryScanStatusChangedMessage(
+                        $scan->getId(),
+                        'completed',
+                        'running' // Previous status
+                    )
+                );
             } else {
                 // Scan still running - schedule another poll
                 if ($message->attemptNumber >= self::MAX_POLL_ATTEMPTS) {
@@ -136,6 +164,15 @@ class PollProviderScanResultsHandler
                     ]);
                     $scan->setStatus('timeout');
                     $this->em->flush();
+                    
+                    // Dispatch status change message for timeout
+                    $this->bus->dispatch(
+                        new RepositoryScanStatusChangedMessage(
+                            $scan->getId(),
+                            'timeout',
+                            'running'
+                        )
+                    );
                 } else {
                     // Re-queue the message with incremented attempt number
                     // The message will be processed after POLL_DELAY_SECONDS
@@ -173,6 +210,15 @@ class PollProviderScanResultsHandler
             } else {
                 $scan->setStatus('failed');
                 $this->em->flush();
+                
+                // Dispatch status change message for failed scan
+                $this->bus->dispatch(
+                    new RepositoryScanStatusChangedMessage(
+                        $scan->getId(),
+                        'failed',
+                        'running'
+                    )
+                );
             }
         }
     }

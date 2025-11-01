@@ -102,7 +102,7 @@ class ScanService implements ScanServiceInterface
         // mark queued and enqueue async
         $scan->setStatus('queued');
         $this->em->flush();
-        $this->bus->dispatch(new \App\Message\StartProviderScanMessage($scan->getId()));
+    $this->bus->dispatch(new \App\Message\StartProviderScanMessage($scan->getId()));
     }
 
     public function getScanSummary(string $scanId): ?array

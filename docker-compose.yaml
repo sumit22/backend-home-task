@@ -11,6 +11,10 @@ volumes:
         driver: local
     localstack_data:
         driver: local
+    php_var:
+        driver: local
+    messenger_var:
+        driver: local
 
 networks:
     backend:
@@ -97,6 +101,7 @@ services:
             - "8000:8000"
         volumes:
             - ./:/var/www/html
+            - php_var:/var/www/html/var
         depends_on:
             - db
             - rabbitmq
@@ -146,6 +151,7 @@ services:
             --time-limit=3600 --memory-limit=128M --limit=100
         volumes:
             - ./:/var/www/html
+            - messenger_var:/var/www/html/var
         depends_on:
             - db
             - rabbitmq

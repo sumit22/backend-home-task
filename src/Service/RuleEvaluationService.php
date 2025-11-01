@@ -118,6 +118,7 @@ class RuleEvaluationService
         
         return match ($triggerType) {
             'scan_completed' => $this->evaluateScanCompletedTrigger($scan, $triggerPayload),
+            'scan_completed_clean' => $this->evaluateScanCompletedCleanTrigger($scan, $triggerPayload),
             'vulnerability_threshold' => $this->evaluateVulnerabilityThresholdTrigger($scan, $triggerPayload),
             'upload_in_progress' => $this->evaluateUploadInProgressTrigger($scan, $triggerPayload),
             'upload_failed' => $this->evaluateUploadFailedTrigger($scan, $triggerPayload),
@@ -132,6 +133,35 @@ class RuleEvaluationService
     private function evaluateScanCompletedTrigger(RepositoryScan $scan, array $payload): bool
     {
         return $scan->getStatus() === 'completed';
+    }
+    
+    /**
+     * Trigger: scan_completed_clean
+     * Fires when scan completed AND vulnerability count = 0 (clean scan)
+     * 
+     * Payload:
+     * - max_vulnerabilities: int (optional) - maximum vulnerability count (default: 0)
+     */
+    private function evaluateScanCompletedCleanTrigger(RepositoryScan $scan, array $payload): bool
+    {
+        // Must be completed to have final count
+        if ($scan->getStatus() !== 'completed') {
+            return false;
+        }
+        
+        $maxVulnerabilities = $payload['max_vulnerabilities'] ?? 0;
+        $count = $scan->getVulnerabilityCount();
+        
+        $matches = $count <= $maxVulnerabilities;
+        
+        if ($matches) {
+            $this->logger->info('Clean scan detected - congratulations!', [
+                'scan_id' => $scan->getId(),
+                'vulnerability_count' => $count,
+            ]);
+        }
+        
+        return $matches;
     }
     
     /**

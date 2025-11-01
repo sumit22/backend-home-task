@@ -22,10 +22,17 @@
 <body>
     <div class="container">
         <div class="header">
-            <h1 style="margin: 0;">✅ Security Scan Completed</h1>
+            <h1 style="margin: 0;">{% if vulnerability_count == 0 %}🎉 Congratulations!{% else %}✅ Security Scan Completed{% endif %}</h1>
         </div>
         
         <div class="content">
+            {% if vulnerability_count == 0 %}
+            <div style="background: #d4edda; color: #155724; padding: 20px; margin-bottom: 20px; border-radius: 5px; border: 1px solid #c3e6cb; text-align: center;">
+                <h2 style="margin: 0 0 10px 0;">🎉 Excellent News!</h2>
+                <p style="margin: 0; font-size: 16px;">Your security scan completed with <strong>zero vulnerabilities</strong>! Your code is clean and secure.</p>
+            </div>
+            {% endif %}
+            
             <div class="info-box">
                 <div class="info-row">
                     <span class="label">Repository:</span>
@@ -47,8 +54,10 @@
 
             <h3>Scan Results</h3>
             <div class="stats-grid">
-                <div class="stat-card">
-                    <div class="stat-value">{{ vulnerability_count }}</div>
+                <div class="stat-card" style="{% if vulnerability_count == 0 %}background: #d4edda; border-color: #c3e6cb;{% endif %}">
+                    <div class="stat-value" style="{% if vulnerability_count == 0 %}color: #155724;{% endif %}">
+                        {% if vulnerability_count == 0 %}✓ 0{% else %}{{ vulnerability_count }}{% endif %}
+                    </div>
                     <div class="stat-label">Vulnerabilities</div>
                 </div>
                 <div class="stat-card">
@@ -71,6 +80,9 @@
         </div>
 
         <div class="footer">
+            {% if vulnerability_count == 0 %}
+            <p style="color: #28a745; font-weight: bold;">🎊 Keep up the great work maintaining secure code! 🎊</p>
+            {% endif %}
             <p>This is an automated notification from your Security Scanning Service</p>
         </div>
     </div>

@@ -26,8 +26,13 @@ class ScanCompletedNotification extends Notification implements EmailNotificatio
         private RepositoryScan $scan,
         array $channels = ['email', 'chat']
     ) {
+        $vulnCount = $scan->getVulnerabilityCount();
+        $subject = $vulnCount === 0 
+            ? '🎉 Congratulations! No Vulnerabilities Found' 
+            : '✅ Scan Completed Successfully';
+            
         parent::__construct(
-            subject: '✅ Scan Completed Successfully',
+            subject: $subject,
             channels: $channels
         );
         

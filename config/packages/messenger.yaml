@@ -1,7 +1,10 @@
 framework:
     messenger:
-        # Uncomment this (and the failed transport below) to send failed messages to this transport for later handling.
-        failure_transport: failed
+        # If a dedicated failed transport (doctrine) isn't available in the container,
+        # avoid sending failed messages to it to prevent worker errors. Use the
+        # async transport as the failure transport so messages remain on the same
+        # broker and do not cause an error when doctrine messenger is not installed.
+        failure_transport: async
 
         transports:
             # https://symfony.com/doc/current/messenger.html#transport-configuration
@@ -27,9 +30,9 @@ framework:
 
         routing:
             # Route your messages to the transports
-            'App\Message\StartProviderScanMessage': async
-            'App\Message\PollProviderScanResultsMessage': async
-            'App\Message\RepositoryScanStatusChangedMessage': scan_status
+            'App\\Message\\StartProviderScanMessage': async
+            'App\\Message\\PollProviderScanResultsMessage': async
+            'App\\Message\\RepositoryScanStatusChangedMessage': scan_status
 
 # when@test:
 #    framework:
