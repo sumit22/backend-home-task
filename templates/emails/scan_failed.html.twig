@@ -1,90 +1,107 @@
 {# templates/emails/scan_failed.html.twig #}
-<!DOCTYPE html>
-<html>
-<head>
-    <meta charset="utf-8">
-    <style>
-        body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
-        .container { max-width: 600px; margin: 0 auto; padding: 20px; }
-        .header { background: #dc3545; color: white; padding: 20px; border-radius: 5px 5px 0 0; }
-        .content { background: #f8f9fa; padding: 20px; border: 1px solid #dee2e6; }
-        .info-box { background: white; padding: 15px; margin: 10px 0; border-left: 4px solid #dc3545; }
-        .info-row { margin: 8px 0; }
-        .label { font-weight: bold; color: #666; }
-        .value { color: #333; }
-        .error-section { background: #f8d7da; padding: 15px; margin-top: 20px; border-radius: 5px; border: 1px solid #f5c6cb; }
-        .footer { text-align: center; margin-top: 20px; color: #666; font-size: 12px; }
-    </style>
-</head>
-<body>
-    <div class="container">
-        <div class="header">
-            <h1 style="margin: 0;">❌ Security Scan Failed</h1>
+{% extends 'emails/base.html.twig' %}
+
+{% block header_color %}#dc3545{% endblock %}
+{% block info_box_color %}#dc3545{% endblock %}
+
+{% block extra_styles %}
+    .error-section { 
+        background: #f8d7da; 
+        padding: 15px; 
+        margin-top: 20px; 
+        border-radius: 5px; 
+        border: 1px solid #f5c6cb;
+        border-left: 4px solid #dc3545;
+    }
+    .error-section h3 {
+        margin-top: 0;
+        color: #721c24;
+    }
+    .error-section p {
+        margin-bottom: 0;
+        color: #721c24;
+    }
+    .info-section {
+        background: #d1ecf1;
+        padding: 15px;
+        margin-top: 20px;
+        border-radius: 5px;
+        border: 1px solid #bee5eb;
+        border-left: 4px solid #17a2b8;
+    }
+    .info-section h3 {
+        margin-top: 0;
+        color: #0c5460;
+    }
+    .info-section ul {
+        margin-bottom: 0;
+        color: #0c5460;
+    }
+    .status-failed {
+        color: #dc3545;
+        font-weight: bold;
+    }
+{% endblock %}
+
+{% block header_icon %}❌{% endblock %}
+{% block header_title %}Security Scan Failed{% endblock %}
+
+{% block content %}
+    <div class="info-box">
+        <div class="info-row">
+            <span class="label">Repository:</span>
+            <span class="value">{{ repository_name }}</span>
         </div>
-        
-        <div class="content">
-            <div class="info-box">
-                <div class="info-row">
-                    <span class="label">Repository:</span>
-                    <span class="value">{{ repository_name }}</span>
-                </div>
-                <div class="info-row">
-                    <span class="label">Branch:</span>
-                    <span class="value">{{ branch }}</span>
-                </div>
-                <div class="info-row">
-                    <span class="label">Status:</span>
-                    <span class="value" style="color: #dc3545; font-weight: bold;">{{ status|upper }}</span>
-                </div>
-                <div class="info-row">
-                    <span class="label">Provider:</span>
-                    <span class="value">{{ provider_code }}</span>
-                </div>
-                <div class="info-row">
-                    <span class="label">Scan ID:</span>
-                    <span class="value"><code>{{ scan_id }}</code></span>
-                </div>
-            </div>
-
-            <div class="error-section">
-                <h3 style="margin-top: 0; color: #721c24;">⚠️ What Happened?</h3>
-                <p>
-                    {% if status == 'timeout' %}
-                        The scan exceeded the maximum allowed time and was automatically cancelled.
-                    {% else %}
-                        The scan encountered an error and could not complete successfully.
-                    {% endif %}
-                </p>
-            </div>
-
-            <h3>Timeline</h3>
-            <div class="info-box">
-                <div class="info-row">
-                    <span class="label">Started:</span>
-                    <span class="value">{{ started_at }}</span>
-                </div>
-                {% if completed_at %}
-                <div class="info-row">
-                    <span class="label">Failed At:</span>
-                    <span class="value">{{ completed_at }}</span>
-                </div>
-                {% endif %}
-            </div>
-
-            <div style="background: #d1ecf1; padding: 15px; margin-top: 20px; border-radius: 5px; border: 1px solid #bee5eb;">
-                <h3 style="margin-top: 0; color: #0c5460;">💡 Next Steps</h3>
-                <ul style="margin-bottom: 0;">
-                    <li>Check the repository files for compatibility issues</li>
-                    <li>Review the scan logs for detailed error information</li>
-                    <li>Retry the scan after addressing any identified issues</li>
-                    <li>Contact support if the problem persists</li>
-                </ul>
-            </div>
+        <div class="info-row">
+            <span class="label">Branch:</span>
+            <span class="value">{{ branch }}</span>
         </div>
-
-        <div class="footer">
-            <p>This is an automated notification from your Security Scanning Service</p>
+        <div class="info-row">
+            <span class="label">Status:</span>
+            <span class="value status-failed">{{ status|upper }}</span>
+        </div>
+        <div class="info-row">
+            <span class="label">Provider:</span>
+            <span class="value">{{ provider_code }}</span>
+        </div>
+        <div class="info-row">
+            <span class="label">Scan ID:</span>
+            <span class="value"><code>{{ scan_id }}</code></span>
         </div>
     </div>
-</body>
-</html>
+
+    <div class="error-section">
+        <h3>⚠️ What Happened?</h3>
+        <p>
+            {% if status == 'timeout' %}
+                The scan exceeded the maximum allowed time and was automatically cancelled.
+            {% else %}
+                The scan encountered an error and could not complete successfully.
+            {% endif %}
+        </p>
+    </div>
+
+    <h3>Timeline</h3>
+    <div class="info-box">
+        <div class="info-row">
+            <span class="label">Started:</span>
+            <span class="value">{{ started_at }}</span>
+        </div>
+        {% if completed_at %}
+        <div class="info-row">
+            <span class="label">Failed At:</span>
+            <span class="value">{{ completed_at }}</span>
+        </div>
+        {% endif %}
+    </div>
+
+    <div class="info-section">
+        <h3>💡 Next Steps</h3>
+        <ul>
+            <li>Check the repository files for compatibility issues</li>
+            <li>Review the scan logs for detailed error information</li>
+            <li>Retry the scan after addressing any identified issues</li>
+            <li>Contact support if the problem persists</li>
+        </ul>
+    </div>
+{% endblock %}

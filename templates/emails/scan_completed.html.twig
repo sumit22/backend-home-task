@@ -1,78 +1,80 @@
 {# templates/emails/scan_completed.html.twig #}
-<!DOCTYPE html>
-<html>
-<head>
-    <meta charset="utf-8">
-    <style>
-        body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
-        .container { max-width: 600px; margin: 0 auto; padding: 20px; }
-        .header { background: #28a745; color: white; padding: 20px; border-radius: 5px 5px 0 0; }
-        .content { background: #f8f9fa; padding: 20px; border: 1px solid #dee2e6; }
-        .info-box { background: white; padding: 15px; margin: 10px 0; border-left: 4px solid #28a745; }
-        .info-row { margin: 8px 0; }
-        .label { font-weight: bold; color: #666; }
-        .value { color: #333; }
-        .stats-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 15px; }
-        .stat-card { background: white; padding: 15px; text-align: center; border-radius: 5px; border: 1px solid #dee2e6; }
-        .stat-value { font-size: 24px; font-weight: bold; color: #28a745; }
-        .stat-label { font-size: 12px; color: #666; text-transform: uppercase; }
-        .footer { text-align: center; margin-top: 20px; color: #666; font-size: 12px; }
-    </style>
-</head>
-<body>
-    <div class="container">
-        <div class="header">
-            <h1 style="margin: 0;">✅ Security Scan Completed</h1>
+{% extends 'emails/base.html.twig' %}
+
+{% block header_color %}#28a745{% endblock %}
+{% block info_box_color %}#28a745{% endblock %}
+
+{% block extra_styles %}
+    .stats-grid { 
+        display: grid; 
+        grid-template-columns: 1fr 1fr; 
+        gap: 10px; 
+        margin: 15px 0; 
+    }
+    .stat-card { 
+        background: #f8f9fa; 
+        padding: 15px; 
+        text-align: center; 
+        border-radius: 5px; 
+        border: 1px solid #dee2e6; 
+    }
+    .stat-value { 
+        font-size: 24px; 
+        font-weight: bold; 
+        color: #28a745; 
+    }
+    .stat-label { 
+        font-size: 12px; 
+        color: #666; 
+        text-transform: uppercase; 
+        margin-top: 5px;
+    }
+{% endblock %}
+
+{% block header_icon %}✅{% endblock %}
+{% block header_title %}Security Scan Completed{% endblock %}
+
+{% block content %}
+    <div class="info-box">
+        <div class="info-row">
+            <span class="label">Repository:</span>
+            <span class="value">{{ repository_name }}</span>
         </div>
-        
-        <div class="content">
-            <div class="info-box">
-                <div class="info-row">
-                    <span class="label">Repository:</span>
-                    <span class="value">{{ repository_name }}</span>
-                </div>
-                <div class="info-row">
-                    <span class="label">Branch:</span>
-                    <span class="value">{{ branch }}</span>
-                </div>
-                <div class="info-row">
-                    <span class="label">Provider:</span>
-                    <span class="value">{{ provider_code }}</span>
-                </div>
-                <div class="info-row">
-                    <span class="label">Scan ID:</span>
-                    <span class="value"><code>{{ scan_id }}</code></span>
-                </div>
-            </div>
-
-            <h3>Scan Results</h3>
-            <div class="stats-grid">
-                <div class="stat-card">
-                    <div class="stat-value">{{ vulnerability_count }}</div>
-                    <div class="stat-label">Vulnerabilities</div>
-                </div>
-                <div class="stat-card">
-                    <div class="stat-value">{{ duration }}</div>
-                    <div class="stat-label">Duration</div>
-                </div>
-            </div>
-
-            <h3>Timeline</h3>
-            <div class="info-box">
-                <div class="info-row">
-                    <span class="label">Started:</span>
-                    <span class="value">{{ started_at }}</span>
-                </div>
-                <div class="info-row">
-                    <span class="label">Completed:</span>
-                    <span class="value">{{ completed_at }}</span>
-                </div>
-            </div>
+        <div class="info-row">
+            <span class="label">Branch:</span>
+            <span class="value">{{ branch }}</span>
         </div>
-
-        <div class="footer">
-            <p>This is an automated notification from your Security Scanning Service</p>
+        <div class="info-row">
+            <span class="label">Provider:</span>
+            <span class="value">{{ provider_code }}</span>
+        </div>
+        <div class="info-row">
+            <span class="label">Scan ID:</span>
+            <span class="value"><code>{{ scan_id }}</code></span>
         </div>
     </div>
-</body>
-</html>
+
+    <h3>Scan Results</h3>
+    <div class="stats-grid">
+        <div class="stat-card">
+            <div class="stat-value">{{ vulnerability_count }}</div>
+            <div class="stat-label">Vulnerabilities</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-value">{{ duration }}</div>
+            <div class="stat-label">Duration</div>
+        </div>
+    </div>
+
+    <h3>Timeline</h3>
+    <div class="info-box">
+        <div class="info-row">
+            <span class="label">Started:</span>
+            <span class="value">{{ started_at }}</span>
+        </div>
+        <div class="info-row">
+            <span class="label">Completed:</span>
+            <span class="value">{{ completed_at }}</span>
+        </div>
+    </div>
+{% endblock %}
