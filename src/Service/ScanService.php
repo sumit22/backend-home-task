@@ -115,8 +115,8 @@ class ScanService implements ScanServiceInterface
             throw new \InvalidArgumentException('Scan not found');
         }
 
-        // mark queued and enqueue async
-        $this->stateMachine->transition($scan, 'queued', 'Manual scan execution triggered');
+        // Dispatch async message to start provider scan
+        // Status will transition to 'running' when handler processes this
         $this->bus->dispatch(new \App\Message\StartProviderScanMessage($scan->getId()));
     }
 

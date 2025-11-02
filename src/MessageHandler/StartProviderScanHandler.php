@@ -75,6 +75,16 @@ final class StartProviderScanHandler
             return;
         }
 
+        // Verify scan is in uploaded state before starting
+        if ($scan->getStatus() !== 'uploaded') {
+            $this->logger->warning('Scan not in uploaded state, skipping provider upload', [
+                'scan_id' => $scan->getId(),
+                'current_status' => $scan->getStatus(),
+                'expected_status' => 'uploaded'
+            ]);
+            return;
+        }
+
         try {
             $result = $adapter->uploadAndCreateScan($scan, $localPaths, [
                 'repositoryName' => $scan->getRepository()->getName(),

@@ -337,7 +337,7 @@ class ScanServiceTest extends TestCase
         $this->service->startProviderScan('non-existent-scan');
     }
 
-    public function testStartProviderScanMarksAsQueuedAndDispatchesMessage()
+    public function testStartProviderScanDispatchesMessage()
     {
         $scan = new RepositoryScan();
         $scan->setStatus('uploaded');
@@ -347,10 +347,10 @@ class ScanServiceTest extends TestCase
             ->with('scan-id')
             ->willReturn($scan);
 
-        // State machine handles flush internally
-        $this->stateMachine->expects($this->once())
-            ->method('transition')
-            ->with($scan, 'queued', 'Manual scan execution triggered');
+        // No longer transitions to queued - just dispatches message
+        // Handler will transition to 'running' when it processes the message
+        $this->stateMachine->expects($this->never())
+            ->method('transition');
 
         $this->bus->expects($this->once())
             ->method('dispatch')
@@ -358,9 +358,6 @@ class ScanServiceTest extends TestCase
             ->willReturn(new Envelope(new StartProviderScanMessage('scan-id')));
 
         $this->service->startProviderScan('scan-id');
-
-        // State machine will call setStatus, so we don't assert it here
-        // $this->assertEquals('queued', $scan->getStatus());
     }
 
     public function testGetScanSummaryReturnsNullWhenScanNotFound()

@@ -50,27 +50,10 @@ class ScanStateMachineTest extends TestCase
         $this->assertEquals('uploaded', $scan->getStatus());
     }
 
-    public function testTransitionFromUploadedToQueued(): void
+    public function testTransitionFromUploadedToRunning(): void
     {
         $scan = new RepositoryScan();
         $scan->setStatus('uploaded');
-        
-        $this->em->expects($this->once())
-            ->method('flush');
-        
-        $this->bus->expects($this->once())
-            ->method('dispatch')
-            ->willReturn(new Envelope(new \stdClass()));
-        
-        $this->stateMachine->transition($scan, 'queued');
-        
-        $this->assertEquals('queued', $scan->getStatus());
-    }
-
-    public function testTransitionFromQueuedToRunning(): void
-    {
-        $scan = new RepositoryScan();
-        $scan->setStatus('queued');
         
         $this->em->expects($this->once())
             ->method('flush');
@@ -188,8 +171,7 @@ class ScanStateMachineTest extends TestCase
     {
         $this->assertTrue($this->stateMachine->canTransition('pending', 'uploaded'));
         $this->assertTrue($this->stateMachine->canTransition('pending', 'failed'));
-        $this->assertTrue($this->stateMachine->canTransition('uploaded', 'queued'));
-        $this->assertTrue($this->stateMachine->canTransition('queued', 'running'));
+        $this->assertTrue($this->stateMachine->canTransition('uploaded', 'running'));
         $this->assertTrue($this->stateMachine->canTransition('running', 'completed'));
         $this->assertTrue($this->stateMachine->canTransition('running', 'failed'));
         $this->assertTrue($this->stateMachine->canTransition('running', 'timeout'));
@@ -207,8 +189,7 @@ class ScanStateMachineTest extends TestCase
     public function testGetAvailableTransitions(): void
     {
         $this->assertEquals(['uploaded', 'failed'], $this->stateMachine->getAvailableTransitions('pending'));
-        $this->assertEquals(['queued', 'failed'], $this->stateMachine->getAvailableTransitions('uploaded'));
-        $this->assertEquals(['running', 'failed'], $this->stateMachine->getAvailableTransitions('queued'));
+        $this->assertEquals(['running', 'failed'], $this->stateMachine->getAvailableTransitions('uploaded'));
         $this->assertEquals(['completed', 'failed', 'timeout'], $this->stateMachine->getAvailableTransitions('running'));
         $this->assertEquals([], $this->stateMachine->getAvailableTransitions('completed'));
         $this->assertEquals([], $this->stateMachine->getAvailableTransitions('failed'));
@@ -219,7 +200,6 @@ class ScanStateMachineTest extends TestCase
     {
         $this->assertFalse($this->stateMachine->isTerminalState('pending'));
         $this->assertFalse($this->stateMachine->isTerminalState('uploaded'));
-        $this->assertFalse($this->stateMachine->isTerminalState('queued'));
         $this->assertFalse($this->stateMachine->isTerminalState('running'));
         $this->assertTrue($this->stateMachine->isTerminalState('completed'));
         $this->assertTrue($this->stateMachine->isTerminalState('failed'));
@@ -232,7 +212,6 @@ class ScanStateMachineTest extends TestCase
         
         $this->assertContains('pending', $states);
         $this->assertContains('uploaded', $states);
-        $this->assertContains('queued', $states);
         $this->assertContains('running', $states);
         $this->assertContains('completed', $states);
         $this->assertContains('failed', $states);
@@ -282,14 +261,14 @@ class ScanStateMachineTest extends TestCase
     public function testTransitionDispatchesCorrectMessage(): void
     {
         $scan = new RepositoryScan();
-        $scan->setStatus('queued');
+        $scan->setStatus('uploaded');
         
         $this->bus->expects($this->once())
             ->method('dispatch')
             ->with($this->callback(function ($message) use ($scan) {
                 return $message instanceof RepositoryScanStatusChangedMessage
                     && $message->getScanId() === $scan->getId()->toRfc4122()
-                    && $message->getOldStatus() === 'queued'
+                    && $message->getOldStatus() === 'uploaded'
                     && $message->getNewStatus() === 'running';
             }))
             ->willReturn(new Envelope(new \stdClass()));

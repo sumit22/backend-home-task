@@ -14,12 +14,15 @@ use App\Repository\RuleRepository;
 use Psr\Log\LoggerInterface;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Component\Notifier\NotifierInterface;
+use Symfony\Component\Mailer\MailerInterface;
+use Symfony\Component\Mime\Address;
+use Symfony\Component\Mime\Email;
 
 /**
  * RuleEvaluationService
  * 
  * Evaluates database-driven rules against scan events with repository-specific + global fallback.
- * Uses Symfony Notifier with custom Notification classes.
+ * Uses Mailer for emails and Notifier for Slack.
  * 
  * RULE HIERARCHY:
  * 1. Repository-specific rules (scope = 'repository:{id}')
@@ -40,6 +43,7 @@ class RuleEvaluationService
     public function __construct(
         private RuleRepository $ruleRepository,
         private NotifierInterface $notifier,
+        private MailerInterface $mailer,
         private EntityManagerInterface $entityManager,
         private LoggerInterface $logger
     ) {}
@@ -268,66 +272,63 @@ class RuleEvaluationService
     }
     
     /**
-     * Execute email action - Uses Symfony Notifier with appropriate Notification class
+     * Execute email action - Sends plain text emails via Mailer
      * 
      * The action is determined by the rule's trigger type and scan status.
      * Notifications are sent to repository-specific emails from NotificationSetting.
      * Falls back to admin recipients if no repository settings exist.
-     * Channels are passed from the action type to the notification.
      */
     private function executeEmailAction(RepositoryScan $scan, array $payload): void
     {
-        $notification = $this->createNotificationForScan($scan, $payload, ['email']);
+        $recipients = $this->getEmailRecipientsForRepository($scan->getRepository());
         
-        if ($notification) {
-            $recipients = $this->getEmailRecipientsForRepository($scan->getRepository());
-            
-            if (empty($recipients)) {
-                // Fallback to default admin recipients
-                $this->notifier->send($notification);
-                $this->logger->debug('Email notification sent to admin recipients');
-            } else {
-                // Send to repository-specific recipients
-                foreach ($recipients as $email) {
-                    $this->notifier->send($notification, new \Symfony\Component\Notifier\Recipient\Recipient($email));
-                }
-                $this->logger->debug('Email notification sent to repository-specific recipients', [
-                    'recipients' => $recipients,
-                ]);
-            }
+        // Fallback to admin emails if no repository settings
+        if (empty($recipients)) {
+            $recipients = ['security@example.com', 'admin@example.com'];
         }
+        
+        // Build email content based on scan status
+        $subject = $this->getEmailSubject($scan, $payload);
+        $body = $this->getEmailBody($scan, $payload);
+        
+        // Send plain text email to each recipient
+        foreach ($recipients as $recipientEmail) {
+            $email = (new Email())
+                ->from('noreply@example.com')
+                ->to($recipientEmail)
+                ->subject($subject)
+                ->text($body);
+            
+            // Send via Mailer (async via Messenger)
+            $this->mailer->send($email);
+        }
+        
+        $this->logger->debug('Email sent via Mailer', [
+            'recipients' => $recipients,
+            'subject' => $subject,
+        ]);
     }
     
     /**
-     * Execute Slack action - Uses Symfony Notifier with appropriate Notification class
-     * 
-     * Same notification classes as email, but routed to chat channel.
-     * Uses repository-specific Slack channels from NotificationSetting.
-     * Falls back to default channel if no repository settings exist.
-     * Channels are passed from the action type to the notification.
+     * Execute Slack action - Use Notifier with chat channel only
+     * Creates notification with explicit ['chat'] channel to avoid email routing
      */
     private function executeSlackAction(RepositoryScan $scan, array $payload): void
     {
+        // Create notification with ONLY chat channel to avoid email channel routing
         $notification = $this->createNotificationForScan($scan, $payload, ['chat']);
         
         if ($notification) {
-            $slackChannels = $this->getSlackChannelsForRepository($scan->getRepository());
-            
-            if (empty($slackChannels)) {
-                // Fallback to default Slack channel from DSN
-                $this->notifier->send($notification);
-                $this->logger->debug('Slack notification sent to default channel');
-            } else {
-                // Send to repository-specific Slack channels
-                // Note: Symfony Notifier doesn't support per-message channel override easily
-                // This would require custom implementation or multiple Slack transports
-                // For now, we'll log the intended channels and use default
-                $this->notifier->send($notification);
-                $this->logger->debug('Slack notification sent (intended for specific channels)', [
-                    'channels' => $slackChannels,
-                ]);
-            }
+            // Send via Notifier - will only route to chat channel
+            $this->notifier->send($notification);
         }
+        
+        $this->logger->debug('Slack notification sent', [
+            'scan_id' => $scan->getId(),
+            'status' => $scan->getStatus(),
+        ]);
+        
+        $this->logger->debug('Slack notification sent');
     }
     
     /**
@@ -340,11 +341,14 @@ class RuleEvaluationService
      * 
      * @param RepositoryScan $scan The scan to notify about
      * @param array $payload Action payload (may contain threshold, etc.)
-     * @param array $channels Notification channels from action type (email, chat, etc.)
+     * @param array $channels Notification channels to use (e.g., ['email'], ['chat'], or ['email', 'chat'])
      * @return HighVulnerabilityNotification|ScanFailedNotification|ScanCompletedNotification|UploadInProgressNotification|null
      */
-    private function createNotificationForScan(RepositoryScan $scan, array $payload, array $channels): ?object
-    {
+    private function createNotificationForScan(
+        RepositoryScan $scan, 
+        array $payload, 
+        array $channels = ['email', 'chat']
+    ): ?object {
         $status = $scan->getStatus();
         $vulnCount = $scan->getVulnerabilityCount() ?? 0;
         
@@ -352,11 +356,11 @@ class RuleEvaluationService
         $threshold = $payload['threshold'] ?? 10;
         
         return match ($status) {
-            'failed', 'timeout' => new ScanFailedNotification($scan, $channels),
+            'failed', 'timeout' => new ScanFailedNotification($scan),
             'completed' => $vulnCount > $threshold 
-                ? new HighVulnerabilityNotification($scan, $threshold, $channels)
-                : new ScanCompletedNotification($scan, $channels),
-            'uploaded', 'queued', 'running' => new UploadInProgressNotification($scan, $channels),
+                ? HighVulnerabilityNotification::createFromScan($scan, $threshold, $channels)
+                : new ScanCompletedNotification($scan),
+            'uploaded', 'queued', 'running' => new UploadInProgressNotification($scan),
             default => null,
         };
     }
@@ -448,6 +452,69 @@ class RuleEvaluationService
             array_values($variables),
             $template
         );
+    }
+    
+    /**
+     * Get email subject based on scan status and trigger
+     */
+    private function getEmailSubject(RepositoryScan $scan, array $payload): string
+    {
+        $status = $scan->getStatus();
+        $vulnCount = $scan->getVulnerabilityCount() ?? 0;
+        $threshold = $payload['threshold'] ?? 10;
+        
+        return match ($status) {
+            'failed', 'timeout' => 'Scan Failed: ' . $scan->getRepository()->getName(),
+            'completed' => $vulnCount > $threshold 
+                ? "High Vulnerability Alert: {$vulnCount} vulnerabilities found"
+                : 'Scan Completed: ' . $scan->getRepository()->getName(),
+            'uploaded', 'queued', 'running' => 'Scan In Progress: ' . $scan->getRepository()->getName(),
+            default => 'Scan Update: ' . $scan->getRepository()->getName(),
+        };
+    }
+    
+    /**
+     * Get email body based on scan status and trigger
+     */
+    private function getEmailBody(RepositoryScan $scan, array $payload): string
+    {
+        $status = $scan->getStatus();
+        $vulnCount = $scan->getVulnerabilityCount() ?? 0;
+        $threshold = $payload['threshold'] ?? 10;
+        $repoName = $scan->getRepository()->getName();
+        $branch = $scan->getBranch() ?? 'main';
+        $scanId = $scan->getId();
+        
+        $body = "Repository: {$repoName}\n";
+        $body .= "Branch: {$branch}\n";
+        $body .= "Scan ID: {$scanId}\n";
+        $body .= "Provider: {$scan->getProviderCode()}\n";
+        $body .= "Status: {$status}\n\n";
+        
+        if ($status === 'completed' && $vulnCount > $threshold) {
+            $body .= "⚠️ HIGH VULNERABILITY ALERT ⚠️\n\n";
+            $body .= "Vulnerability Count: {$vulnCount}\n";
+            $body .= "Threshold: {$threshold}\n";
+            $body .= "Vulnerabilities exceed the threshold by " . ($vulnCount - $threshold) . "\n\n";
+            $body .= "Please review the scan results and take appropriate action.\n";
+        } elseif ($status === 'completed') {
+            $body .= "Scan completed successfully.\n";
+            $body .= "Vulnerability Count: {$vulnCount}\n";
+            $body .= "Threshold: {$threshold}\n";
+        } elseif (in_array($status, ['failed', 'timeout'])) {
+            $body .= "❌ Scan Failed\n\n";
+            $body .= "The scan did not complete successfully.\n";
+            $body .= "Please check the scan configuration and try again.\n";
+        } else {
+            $body .= "Scan is currently in progress.\n";
+            $body .= "You will receive another notification when the scan completes.\n";
+        }
+        
+        $body .= "\n";
+        $body .= "Started: " . ($scan->getStartedAt()?->format('Y-m-d H:i:s') ?? 'N/A') . "\n";
+        $body .= "Completed: " . ($scan->getCompletedAt()?->format('Y-m-d H:i:s') ?? 'N/A') . "\n";
+        
+        return $body;
     }
     
 }

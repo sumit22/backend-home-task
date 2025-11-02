@@ -22,8 +22,7 @@ class ScanStateMachine
      */
     private const VALID_TRANSITIONS = [
         'pending' => ['uploaded', 'failed'],
-        'uploaded' => ['queued', 'failed'],
-        'queued' => ['running', 'failed'],
+        'uploaded' => ['running', 'failed'],
         'running' => ['completed', 'failed', 'timeout'],
         'completed' => [],  // Terminal state
         'failed' => [],     // Terminal state
