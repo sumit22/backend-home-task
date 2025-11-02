@@ -1,6 +1,6 @@
-## Evaluation Checklist (For Interviewers)
+## Project Highlights
 
-**What to Look For:**
+**Key Features:**
 - ✅ **188 passing tests** - Run `docker-compose exec php php bin/phpunit`
 - ✅ **Health checks working** - Test `curl http://localhost:8888/health/ready`
 - ✅ **Rate limiting active** - Nginx-based, configured in `docker/nginx/default.conf`
@@ -9,7 +9,7 @@
 - ✅ **Provider abstraction** - Clean adapter pattern in `src/Service/Provider/`
 - ✅ **Production-ready** - Docker health checks, structured logging, error handling
 
-**Quick Verification (5 minutes):**
+**Quick Verification:**
 ```bash
 docker-compose up -d                           # Start services
 docker-compose exec php php bin/phpunit        # Run tests (should pass)
