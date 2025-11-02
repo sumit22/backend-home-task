@@ -402,4 +402,71 @@ class RuleEvaluationServiceTest extends TestCase
         
         return $rule;
     }
+
+    /**
+     * Test that notification send failures are handled gracefully
+     */
+    public function testHandlesNotificationSendFailure(): void
+    {
+        $scan = $this->createCompletedScan(15);
+        $rule = $this->createVulnerabilityRule('global', 10);
+        
+        $this->ruleRepository->method('findActiveGlobalRules')
+            ->willReturn([$rule]);
+
+        // Simulate notification send failure
+        $this->notifier->method('send')
+            ->willThrowException(new \RuntimeException('Failed to send notification'));
+
+        // Should not throw exception - error is caught and logged in executeAction()
+        $this->service->evaluateAndNotify($scan);
+        
+        // Test passes if no exception is thrown
+        $this->assertTrue(true);
+    }
+
+    /**
+     * Test that rules with no actions are handled correctly
+     */
+    public function testRuleWithNoActionsIsSkipped(): void
+    {
+        $scan = $this->createCompletedScan(15);
+        
+        $rule = new Rule();
+        $rule->setName('Rule Without Actions');
+        $rule->setEnabled(true);
+        $rule->setTriggerType('vulnerability_threshold');
+        $rule->setTriggerPayload(['threshold' => 10]);
+        $rule->setScope('global');
+        // No actions added
+        
+        $this->ruleRepository->method('findActiveGlobalRules')
+            ->willReturn([$rule]);
+
+        // Should not call notifier since no actions
+        $this->notifier->expects($this->never())
+            ->method('send');
+
+        $this->service->evaluateAndNotify($scan);
+    }
+
+    /**
+     * Test that multiple rules execute in sequence
+     */
+    public function testMultipleRulesExecuteInOrder(): void
+    {
+        $scan = $this->createCompletedScan(15);
+        
+        $rule1 = $this->createVulnerabilityRule('global', 10);
+        $rule2 = $this->createScanCompletedRule();
+        
+        $this->ruleRepository->method('findActiveGlobalRules')
+            ->willReturn([$rule1, $rule2]);
+
+        // Both rules should trigger notifications
+        $this->notifier->expects($this->atLeastOnce())
+            ->method('send');
+
+        $this->service->evaluateAndNotify($scan);
+    }
 }

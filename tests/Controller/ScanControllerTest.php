@@ -306,11 +306,10 @@ class ScanControllerTest extends WebTestCase
     {
         $client = static::createClient();
 
+        // No need to mock service - validation happens at request level now
         $scanService = $this->createMock(ScanServiceInterface::class);
-        $scanService->expects($this->once())
-            ->method('handleUploadedFiles')
-            ->with('scan-id', [], false)
-            ->willThrowException(new \InvalidArgumentException('No files provided'));
+        $scanService->expects($this->never())
+            ->method('handleUploadedFiles');
 
         $client->getContainer()->set(ScanServiceInterface::class, $scanService);
 
@@ -324,18 +323,19 @@ class ScanControllerTest extends WebTestCase
 
         $this->assertResponseStatusCodeSame(400);
         $data = json_decode($client->getResponse()->getContent(), true);
-        $this->assertArrayHasKey('error', $data);
-        $this->assertEquals('No files provided', $data['error']);
+        // Validation now returns 'errors' object instead of 'error' string
+        $this->assertArrayHasKey('errors', $data);
+        $this->assertArrayHasKey('files', $data['errors']);
     }
 
     public function testUploadFilesWithTooManyFiles()
     {
         $client = static::createClient();
 
+        // No need to mock service - validation happens at request level now
         $scanService = $this->createMock(ScanServiceInterface::class);
-        $scanService->expects($this->once())
-            ->method('handleUploadedFiles')
-            ->willThrowException(new \InvalidArgumentException('Too many files in request'));
+        $scanService->expects($this->never())
+            ->method('handleUploadedFiles');
 
         $client->getContainer()->set(ScanServiceInterface::class, $scanService);
 
@@ -357,8 +357,10 @@ class ScanControllerTest extends WebTestCase
 
         $this->assertResponseStatusCodeSame(400);
         $data = json_decode($client->getResponse()->getContent(), true);
-        $this->assertArrayHasKey('error', $data);
-        $this->assertEquals('Too many files in request', $data['error']);
+        // Validation now returns 'errors' object instead of 'error' string
+        $this->assertArrayHasKey('errors', $data);
+        $this->assertArrayHasKey('files', $data['errors']);
+        $this->assertStringContainsString('10', $data['errors']['files']);
     }
 
     public function testExecuteScanSuccessfully()

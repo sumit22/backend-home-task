@@ -433,4 +433,147 @@ class ScanServiceTest extends TestCase
         $this->assertNull($result['scan']['provider_code']);
         $this->assertCount(0, $result['files']);
     }
+
+    /**
+     * Test boundary: file at exactly 5MB (5,000,000 bytes) should pass
+     */
+    public function testHandleUploadedFilesAcceptsExactly5MBFile()
+    {
+        $scan = new RepositoryScan();
+        
+        $this->scanRepo->expects($this->once())
+            ->method('find')
+            ->with('scan-id')
+            ->willReturn($scan);
+
+        // Create a temporary file for testing
+        $tmpFile = tempnam(sys_get_temp_dir(), 'test');
+        file_put_contents($tmpFile, str_repeat('x', 100)); // Small content for test
+
+        $file = $this->createMock(UploadedFile::class);
+        $file->method('getClientOriginalExtension')->willReturn('json');
+        $file->method('getClientOriginalName')->willReturn('exactly5mb.json');
+        $file->method('getSize')->willReturn(5_000_000); // Exactly 5MB (5,000,000 bytes)
+        $file->method('getRealPath')->willReturn($tmpFile);
+
+        $this->filesystem->expects($this->once())
+            ->method('writeStream')
+            ->with(
+                $this->stringContains('uploads/scan-id/'),
+                $this->isType('resource')
+            );
+
+        $this->em->expects($this->once())
+            ->method('persist')
+            ->with($this->isInstanceOf(FilesInScan::class));
+
+        $this->em->expects($this->once())
+            ->method('flush');
+
+        $result = $this->service->handleUploadedFiles('scan-id', [$file], false);
+
+        $this->assertIsArray($result);
+        $this->assertCount(1, $result);
+        $this->assertInstanceOf(FilesInScan::class, $result[0]);
+
+        // Cleanup
+        if (file_exists($tmpFile)) {
+            unlink($tmpFile);
+        }
+    }
+
+    /**
+     * Test boundary: file at 5MB + 1 byte should fail
+     */
+    public function testHandleUploadedFilesRejectsFileOver5MB()
+    {
+        $scan = new RepositoryScan();
+        
+        $this->scanRepo->expects($this->once())
+            ->method('find')
+            ->with('scan-id')
+            ->willReturn($scan);
+
+        $file = $this->createMock(UploadedFile::class);
+        $file->method('getClientOriginalExtension')->willReturn('json');
+        $file->method('getClientOriginalName')->willReturn('over5mb.json');
+        $file->method('getSize')->willReturn(5_000_001); // 5MB + 1 byte
+
+        $this->expectException(\InvalidArgumentException::class);
+        $this->expectExceptionMessage('File exceeds max size');
+
+        $this->service->handleUploadedFiles('scan-id', [$file]);
+    }
+
+    /**
+     * Test boundary: exactly 10 files should pass
+     */
+    public function testHandleUploadedFilesAcceptsExactly10Files()
+    {
+        $scan = new RepositoryScan();
+        
+        $this->scanRepo->expects($this->once())
+            ->method('find')
+            ->with('scan-id')
+            ->willReturn($scan);
+
+        // Create exactly 10 mock files (at the limit)
+        $files = [];
+        for ($i = 0; $i < 10; $i++) {
+            $tmpFile = tempnam(sys_get_temp_dir(), "test{$i}");
+            file_put_contents($tmpFile, "content {$i}");
+
+            $file = $this->createMock(UploadedFile::class);
+            $file->method('getClientOriginalExtension')->willReturn('json');
+            $file->method('getClientOriginalName')->willReturn("file{$i}.json");
+            $file->method('getSize')->willReturn(100);
+            $file->method('getRealPath')->willReturn($tmpFile);
+            $files[] = $file;
+        }
+
+        $this->filesystem->expects($this->exactly(10))
+            ->method('writeStream');
+
+        $this->em->expects($this->exactly(10))
+            ->method('persist');
+
+        $this->em->expects($this->once())
+            ->method('flush');
+
+        $result = $this->service->handleUploadedFiles('scan-id', $files, false);
+
+        $this->assertIsArray($result);
+        $this->assertCount(10, $result);
+
+        // Cleanup
+        foreach ($files as $i => $file) {
+            $tmpFile = sys_get_temp_dir() . "/test{$i}";
+            if (file_exists($tmpFile)) {
+                unlink($tmpFile);
+            }
+        }
+    }
+
+    /**
+     * Test edge case: empty file (0 bytes) should be rejected
+     */
+    public function testHandleUploadedFilesRejectsEmptyFile()
+    {
+        $scan = new RepositoryScan();
+        
+        $this->scanRepo->expects($this->once())
+            ->method('find')
+            ->with('scan-id')
+            ->willReturn($scan);
+
+        $file = $this->createMock(UploadedFile::class);
+        $file->method('getClientOriginalExtension')->willReturn('json');
+        $file->method('getClientOriginalName')->willReturn('empty.json');
+        $file->method('getSize')->willReturn(0); // Empty file
+
+        $this->expectException(\InvalidArgumentException::class);
+        $this->expectExceptionMessage('File cannot be empty');
+
+        $this->service->handleUploadedFiles('scan-id', [$file]);
+    }
 }

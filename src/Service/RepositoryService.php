@@ -28,7 +28,18 @@ class RepositoryService implements RepositoryServiceInterface
             throw new \InvalidArgumentException('Repository name is required');
         }
 
+        // Check for duplicate name
+        $existing = $this->repoRepo->findOneBy(['name' => $name]);
+        if ($existing) {
+            throw new \InvalidArgumentException(sprintf('Repository with name "%s" already exists', $name));
+        }
+
         $url = $data['url'] ?? null;
+        // Validate URL format
+        if ($url && !filter_var($url, FILTER_VALIDATE_URL)) {
+            throw new \InvalidArgumentException('Invalid repository URL format');
+        }
+
         $defaultBranch = $data['default_branch'] ?? null;
         $settings = $data['settings'] ?? null;
 
@@ -135,6 +146,18 @@ class RepositoryService implements RepositoryServiceInterface
         $repo = $this->repoRepo->find($repoId);
         if (!$repo) {
             throw new \InvalidArgumentException('Repository not found');
+        }
+
+        // Validate emails if provided
+        if (isset($settings['emails'])) {
+            if (empty($settings['emails'])) {
+                throw new \InvalidArgumentException('At least one notification email is required');
+            }
+            foreach ($settings['emails'] as $email) {
+                if (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
+                    throw new \InvalidArgumentException('Invalid email format');
+                }
+            }
         }
 
         $existing = $this->notifRepo->findOneBy(['repository' => $repo]);

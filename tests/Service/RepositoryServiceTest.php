@@ -304,4 +304,90 @@ class RepositoryServiceTest extends TestCase
 
         $this->assertInstanceOf(NotificationSetting::class, $result);
     }
+
+    /**
+     * Test that creating repository with duplicate name is rejected
+     */
+    public function testCreateRepositoryRejectsDuplicateName()
+    {
+        $existingRepo = new RepoEntity();
+        $existingRepo->setName('duplicate-repo');
+        $existingRepo->setUrl('https://github.com/existing/repo');
+
+        $this->repoRepo->expects($this->once())
+            ->method('findOneBy')
+            ->with(['name' => 'duplicate-repo'])
+            ->willReturn($existingRepo);
+
+        $this->expectException(\InvalidArgumentException::class);
+        $this->expectExceptionMessage('Repository with name "duplicate-repo" already exists');
+
+        $this->service->createRepository([
+            'name' => 'duplicate-repo',
+            'url' => 'https://github.com/new/repo',
+            'default_branch' => 'main'
+        ]);
+    }
+
+    /**
+     * Test that invalid email format in notification settings is rejected
+     */
+    public function testNotificationSettingsRejectsInvalidEmail()
+    {
+        $repo = new RepoEntity();
+        $repo->setName('test-repo');
+
+        $this->repoRepo->expects($this->once())
+            ->method('find')
+            ->with($repo->getId())
+            ->willReturn($repo);
+
+        $this->expectException(\InvalidArgumentException::class);
+        $this->expectExceptionMessage('Invalid email format');
+
+        $this->service->replaceNotificationSettings($repo->getId(), [
+            'emails' => ['valid@example.com', 'invalid-email-format']
+        ]);
+    }
+
+    /**
+     * Test that repository URL format is validated
+     */
+    public function testCreateRepositoryValidatesUrlFormat()
+    {
+        $this->repoRepo->expects($this->once())
+            ->method('findOneBy')
+            ->with(['name' => 'test-repo'])
+            ->willReturn(null);
+
+        $this->expectException(\InvalidArgumentException::class);
+        $this->expectExceptionMessage('Invalid repository URL format');
+
+        $this->service->createRepository([
+            'name' => 'test-repo',
+            'url' => 'not-a-valid-url',
+            'default_branch' => 'main'
+        ]);
+    }
+
+    /**
+     * Test that empty notification email list is rejected
+     */
+    public function testNotificationSettingsRejectsEmptyEmailArray()
+    {
+        $repo = new RepoEntity();
+        $repo->setName('test-repo');
+
+        $this->repoRepo->expects($this->once())
+            ->method('find')
+            ->with($repo->getId())
+            ->willReturn($repo);
+
+        $this->expectException(\InvalidArgumentException::class);
+        $this->expectExceptionMessage('At least one notification email is required');
+
+        $this->service->replaceNotificationSettings($repo->getId(), [
+            'emails' => []
+        ]);
+    }
 }

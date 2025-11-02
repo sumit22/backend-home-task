@@ -70,6 +70,9 @@ class ScanService implements ScanServiceInterface
             if (!in_array($ext, self::ALLOWED_EXT, true)) {
                 throw new \InvalidArgumentException("Extension .$ext not allowed");
             }
+            if ($file->getSize() === 0 || $file->getSize() === null) {
+                throw new \InvalidArgumentException("File cannot be empty");
+            }
             if ($file->getSize() > self::MAX_FILE_SIZE) {
                 throw new \InvalidArgumentException("File exceeds max size");
             }
