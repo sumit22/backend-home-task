@@ -21,6 +21,7 @@ class ScanServiceTest extends TestCase
     private $em;
     private $filesystem;
     private $bus;
+    private $stateMachine;
     private $repoRepo;
     private $scanRepo;
     private $providerRepo;
@@ -32,6 +33,7 @@ class ScanServiceTest extends TestCase
         $this->em = $this->createMock(EntityManagerInterface::class);
         $this->filesystem = $this->createMock(FilesystemOperator::class);
         $this->bus = $this->createMock(MessageBusInterface::class);
+        $this->stateMachine = $this->createMock(\App\Service\ScanStateMachine::class);
         
         $this->repoRepo = $this->createMock(EntityRepository::class);
         $this->scanRepo = $this->createMock(EntityRepository::class);
@@ -48,7 +50,7 @@ class ScanServiceTest extends TestCase
                 return null;
             });
 
-        $this->service = new ScanService($this->em, $this->filesystem, $this->bus);
+        $this->service = new ScanService($this->em, $this->filesystem, $this->bus, $this->stateMachine);
     }
 
     public function testCreateScanThrowsExceptionWhenRepositoryNotFound()
@@ -296,9 +298,14 @@ class ScanServiceTest extends TestCase
         $this->filesystem->expects($this->once())
             ->method('writeStream');
 
-        // Expect flush to be called twice: once after persisting files, once after status update
-        $this->em->expects($this->exactly(2))
+        // Expect flush to be called once after persisting files (state machine handles its own flush)
+        $this->em->expects($this->once())
             ->method('flush');
+
+        // Expect state machine transition to 'uploaded'
+        $this->stateMachine->expects($this->once())
+            ->method('transition')
+            ->with($scan, 'uploaded', 'All files uploaded successfully');
 
         $this->bus->expects($this->once())
             ->method('dispatch')
@@ -307,7 +314,8 @@ class ScanServiceTest extends TestCase
 
         $result = $this->service->handleUploadedFiles('scan-id', [$file], true);
 
-        $this->assertEquals('uploaded', $scan->getStatus());
+        // State machine will call setStatus, so we don't assert it here
+        // $this->assertEquals('uploaded', $scan->getStatus());
         $this->assertCount(1, $result);
 
         // Cleanup
@@ -339,8 +347,10 @@ class ScanServiceTest extends TestCase
             ->with('scan-id')
             ->willReturn($scan);
 
-        $this->em->expects($this->once())
-            ->method('flush');
+        // State machine handles flush internally
+        $this->stateMachine->expects($this->once())
+            ->method('transition')
+            ->with($scan, 'queued', 'Manual scan execution triggered');
 
         $this->bus->expects($this->once())
             ->method('dispatch')
@@ -349,7 +359,8 @@ class ScanServiceTest extends TestCase
 
         $this->service->startProviderScan('scan-id');
 
-        $this->assertEquals('queued', $scan->getStatus());
+        // State machine will call setStatus, so we don't assert it here
+        // $this->assertEquals('queued', $scan->getStatus());
     }
 
     public function testGetScanSummaryReturnsNullWhenScanNotFound()

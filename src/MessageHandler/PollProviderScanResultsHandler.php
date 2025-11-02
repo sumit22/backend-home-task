@@ -20,7 +20,8 @@ class PollProviderScanResultsHandler
         private ProviderManager $providerManager,
         private ExternalMappingService $mapping,
         private MessageBusInterface $bus,
-        private LoggerInterface $logger
+        private LoggerInterface $logger,
+        private \App\Service\ScanStateMachine $stateMachine
     ) {}
 
     public function __invoke(PollProviderScanResultsMessage $message): void
@@ -57,8 +58,7 @@ class PollProviderScanResultsHandler
                 'scanId' => $message->scanId,
                 'provider' => $providerCode
             ]);
-            $scan->setStatus('failed');
-            $this->em->flush();
+            $this->stateMachine->transition($scan, 'failed', 'No provider mapping found');
             return;
         }
 
@@ -67,8 +67,7 @@ class PollProviderScanResultsHandler
 
         if (!$adapter) {
             $this->logger->error('No provider adapter found', ['provider' => $providerCode]);
-            $scan->setStatus('failed');
-            $this->em->flush();
+            $this->stateMachine->transition($scan, 'failed', 'No provider adapter found');
             return;
         }
 
@@ -85,7 +84,7 @@ class PollProviderScanResultsHandler
 
             if ($statusData['scan_completed']) {
                 // Scan completed - update status and save results
-                $scan->setStatus('completed');
+                $this->stateMachine->transition($scan, 'completed', 'Provider scan completed successfully');
                 $scan->setCompletedAt(new \DateTime());
                 
                 // Store scan results in the raw_summary field (for debugging)
@@ -134,8 +133,7 @@ class PollProviderScanResultsHandler
                         'scanId' => $message->scanId,
                         'attempts' => $message->attemptNumber
                     ]);
-                    $scan->setStatus('timeout');
-                    $this->em->flush();
+                    $this->stateMachine->transition($scan, 'timeout', 'Max poll attempts reached');
                 } else {
                     // Re-queue the message with incremented attempt number
                     // The message will be processed after POLL_DELAY_SECONDS
@@ -171,8 +169,7 @@ class PollProviderScanResultsHandler
                     )
                 );
             } else {
-                $scan->setStatus('failed');
-                $this->em->flush();
+                $this->stateMachine->transition($scan, 'failed', 'Max poll attempts reached after error');
             }
         }
     }

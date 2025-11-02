@@ -21,7 +21,8 @@ final class StartProviderScanHandler
         private EntityManagerInterface $em,
         private FilesystemOperator $filesystem,
         private MessageBusInterface $bus,
-        private LoggerInterface $logger
+        private LoggerInterface $logger,
+        private \App\Service\ScanStateMachine $stateMachine
     ) {}
 
     public function __invoke(StartProviderScanMessage $message): void
@@ -38,8 +39,7 @@ final class StartProviderScanHandler
         $adapter = $this->providerManager->getAdapter($providerCode);
 
         if (!$adapter) {
-            $scan->setStatus('failed');
-            $this->em->flush();
+            $this->stateMachine->transition($scan, 'failed', 'No provider adapter found');
             $this->logger->error('No provider adapter found', ['provider' => $providerCode]);
             return;
         }
@@ -71,8 +71,7 @@ final class StartProviderScanHandler
         
         if (empty($localPaths)) {
             $this->logger->error('No files could be read from S3');
-            $scan->setStatus('failed');
-            $this->em->flush();
+            $this->stateMachine->transition($scan, 'failed', 'No files could be read from S3');
             return;
         }
 
@@ -82,8 +81,7 @@ final class StartProviderScanHandler
                 'author' => $scan->getRequestedBy(),
                 'fileMapping' => $fileMapping, // Pass original filenames
             ]);
-            $scan->setStatus('running');
-            $this->em->flush();
+            $this->stateMachine->transition($scan, 'running', 'Provider scan started successfully');
             
             // Dispatch polling message to check scan results
             $this->logger->info('Dispatching poll message for scan', ['scanId' => $scan->getId()]);
@@ -99,8 +97,7 @@ final class StartProviderScanHandler
                 'trace' => substr($e->getTraceAsString(), 0, 2000),
             ]);
             
-            $scan->setStatus('failed');
-            $this->em->flush();
+            $this->stateMachine->transition($scan, 'failed', 'Provider upload failed: ' . $e->getMessage());
         } finally {
             foreach ($localPaths as $p) {
                 @unlink($p);
