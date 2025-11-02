@@ -103,22 +103,21 @@ final class DebrickedProviderAdapter implements ProviderAdapterInterface
                 $statusCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
                 $error = curl_error($ch);
                 
-                // Get verbose output
-                rewind($verbose);
-                $verboseLog = stream_get_contents($verbose);
-                file_put_contents('/tmp/curl-verbose.txt', $verboseLog);
+                // Close verbose output
                 fclose($verbose);
                 
                 curl_close($ch);
+                
+                $this->logger->debug('Debricked API request completed', [
+                    'status_code' => $statusCode,
+                    'file' => basename($localPath),
+                ]);
                 
                 if ($error) {
                     throw new \RuntimeException("cURL error: {$error}");
                 }
                 
                 if ($statusCode >= 400) {
-                    // Write to temp file for debugging
-                    file_put_contents('/tmp/debricked-error.txt', "Status: $statusCode\nResponse: $responseBody\n");
-                    
                     $this->logger->error('Debricked upload failed with non-2xx status', [
                         'status' => $statusCode,
                         'response_body' => $responseBody,
@@ -135,8 +134,6 @@ final class DebrickedProviderAdapter implements ProviderAdapterInterface
                     throw new \RuntimeException("Failed to parse Debricked response: " . json_last_error_msg());
                 }
                 
-                file_put_contents('/tmp/debricked-success.txt', "Status: $statusCode\nResponse:\n" . print_r($data, true));
-                
                 $this->logger->info('Debricked upload SUCCESS', [
                     'status' => $statusCode,
                     'response' => $data,
@@ -152,12 +149,6 @@ final class DebrickedProviderAdapter implements ProviderAdapterInterface
                     'exception_message' => $e->getMessage(),
                     'exception_trace' => substr($e->getTraceAsString(), 0, 2000),
                 ]);
-                
-                file_put_contents('/tmp/debricked-exception.txt', 
-                    "Exception: " . get_class($e) . "\n" . 
-                    "Message: " . $e->getMessage() . "\n" . 
-                    "Trace:\n" . $e->getTraceAsString()
-                );
                 
                 throw $e;
             }
@@ -232,15 +223,20 @@ final class DebrickedProviderAdapter implements ProviderAdapterInterface
         }
         
         if ($finishStatusCode >= 400) {
+            $this->logger->error('Debricked finalization failed', [
+                'status_code' => $finishStatusCode,
+                'response' => $finishResponseBody,
+                'ci_upload_id' => $ciUploadId,
+            ]);
             throw new \RuntimeException("Debricked finish failed with status {$finishStatusCode}: {$finishResponseBody}");
         }
         
-        // Log raw response
-        file_put_contents('/tmp/debricked-finish-raw.txt', "Status: $finishStatusCode\nRaw Response:\n" . $finishResponseBody . "\n");
-        
         // Handle 204 No Content - success with no response body
         if ($finishStatusCode === 204 || empty($finishResponseBody)) {
-            file_put_contents('/tmp/debricked-finish.txt', "Status: $finishStatusCode\nNo response body (success)");
+            $this->logger->info('Debricked scan finalized successfully', [
+                'status_code' => $finishStatusCode,
+                'ci_upload_id' => $ciUploadId,
+            ]);
             return [
                 'ciUploadId' => $ciUploadId,
                 'status' => 'finished',
@@ -249,12 +245,18 @@ final class DebrickedProviderAdapter implements ProviderAdapterInterface
         
         $finishData = json_decode($finishResponseBody, true);
         if (json_last_error() !== JSON_ERROR_NONE) {
-            file_put_contents('/tmp/debricked-finish-parse-error.txt', 
-                "Status: $finishStatusCode\nResponse: $finishResponseBody\nJSON Error: " . json_last_error_msg());
+            $this->logger->error('Failed to parse Debricked finish response', [
+                'status_code' => $finishStatusCode,
+                'response' => $finishResponseBody,
+                'json_error' => json_last_error_msg(),
+            ]);
             throw new \RuntimeException("Failed to parse Debricked finish response: " . json_last_error_msg());
         }
         
-        file_put_contents('/tmp/debricked-finish.txt', "Status: $finishStatusCode\nResponse:\n" . print_r($finishData, true));
+        $this->logger->info('Debricked scan finalized with response', [
+            'status_code' => $finishStatusCode,
+            'ci_upload_id' => $ciUploadId,
+        ]);
 
         return [
             'ciUploadId' => $ciUploadId,
@@ -300,7 +302,11 @@ final class DebrickedProviderAdapter implements ProviderAdapterInterface
             throw new \RuntimeException("Failed to parse Debricked status response: " . json_last_error_msg());
         }
         
-        file_put_contents('/tmp/debricked-poll-status.txt', "Status: $statusCode\nResponse:\n" . print_r($data, true));
+        $this->logger->debug('Debricked scan status polled', [
+            'ci_upload_id' => $ciUploadId,
+            'progress' => $data['progress'] ?? 0,
+            'vulnerabilities_found' => $data['vulnerabilitiesFound'] ?? 0,
+        ]);
         
         return [
             'progress' => $data['progress'] ?? 0,

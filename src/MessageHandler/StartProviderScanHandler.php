@@ -91,19 +91,13 @@ final class StartProviderScanHandler
             
         } catch (\Throwable $e) {
             $this->logger->error('Provider upload failed', [
+                'scan_id' => $message->scanId,
                 'error' => $e->getMessage(),
                 'exception_class' => get_class($e),
                 'file' => $e->getFile(),
                 'line' => $e->getLine(),
+                'trace' => substr($e->getTraceAsString(), 0, 2000),
             ]);
-            
-            file_put_contents('/tmp/message-handler-exception.txt', 
-                "Exception: " . get_class($e) . "\n" . 
-                "Message: " . $e->getMessage() . "\n" . 
-                "File: " . $e->getFile() . "\n" . 
-                "Line: " . $e->getLine() . "\n" . 
-                "Trace:\n" . $e->getTraceAsString()
-            );
             
             $scan->setStatus('failed');
             $this->em->flush();

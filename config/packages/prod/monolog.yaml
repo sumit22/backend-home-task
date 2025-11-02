@@ -1,0 +1,26 @@
+monolog:
+    handlers:
+        # Main application logs to stdout
+        main:
+            type: stream
+            path: php://stdout
+            level: info
+            formatter: monolog.formatter.json
+            
+        # Error logs to stderr
+        error:
+            type: stream
+            path: php://stderr
+            level: error
+            formatter: monolog.formatter.json
+            
+        # Console/CLI logs
+        console:
+            type: console
+            process_psr_3_messages: false
+            channels: ["!event", "!doctrine"]
+
+    formatters:
+        # JSON formatter for structured logs
+        monolog.formatter.json:
+            class: Monolog\Formatter\JsonFormatter
