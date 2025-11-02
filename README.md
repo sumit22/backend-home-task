@@ -1,170 +1,299 @@
-## Project Highlights
+# Vulnerability Scanning Platform
 
-**Key Features:**
-- ✅ **188 passing tests** - Run `docker-compose exec php php bin/phpunit`
-- ✅ **Health checks working** - Test `curl http://localhost:8888/health/ready`
-- ✅ **Rate limiting active** - Nginx-based, configured in `docker/nginx/default.conf`
-- ✅ **12-Factor compliance** - Logs to stdout/stderr, env-based config, stateless design
-- ✅ **Async processing** - RabbitMQ + Messenger for long-running scans
-- ✅ **Provider abstraction** - Clean adapter pattern in `src/Service/Provider/`
-- ✅ **Production-ready** - Docker health checks, structured logging, error handling
+Backend API for security vulnerability scanning built with Symfony 7.3 and Docker.
 
-**Quick Verification:**
+## Prerequisites
+
+- Docker Desktop (or Docker Engine + Docker Compose)
+- Git
+- Debricked account credentials (username, password, refresh token)
+
+## Local Setup
+
+### 1. Clone Repository
 ```bash
-docker-compose up -d                           # Start services
-docker-compose exec php php bin/phpunit        # Run tests (should pass)
-curl http://localhost:8888/health/ready        # Check health (should return 200)
-docker-compose logs nginx | grep "rate limit"  # Verify rate limiting is active
+git clone <repository-url>
+cd backend-home-task
 ```
 
----
+### 2. Configure Environment Variables
 
-## Introduction
-This is a vulnerability scanning platform backend built with **Symfony 7.3** and **Docker**. It provides API endpoints for managing code repositories, initiating security scans, and receiving notifications.
+Copy or verify the `.env` file contains the following required variables:
 
-### Quick Start
+#### Required for Debricked Integration
 ```bash
-# Start all services
+DEBRICKED_USERNAME=your_username
+DEBRICKED_PASSWORD=your_password
+DEBRICKED_REFRESH_TOKEN=your_refresh_token
+DEBRICKED_API_BASE=https://debricked.com/api
+```
+
+#### Database Configuration
+```bash
+DATABASE_URL="mysql://root:docker@db:3306/rule_engine?serverVersion=8.0.40&charset=utf8mb4"
+```
+
+#### Message Queue
+```bash
+MESSENGER_TRANSPORT_DSN=amqp://rabbit:docker@rabbitmq:5672/%2F
+```
+
+#### Email Testing
+```bash
+MAILER_DSN=smtp://mailpit:1025?auth_mode=plain&encryption=null
+```
+
+#### AWS Services (LocalStack)
+```bash
+AWS_ENDPOINT=http://localstack:4566
+AWS_ACCESS_KEY_ID=test
+AWS_SECRET_ACCESS_KEY=test
+AWS_DEFAULT_REGION=us-east-1
+AWS_S3_BUCKET=rule-engine-files
+AWS_USE_PATH_STYLE_ENDPOINT=true
+```
+
+#### Application Settings
+```bash
+APP_ENV=dev
+APP_SECRET=a9e2c9dd900ae81c2d4de07e5288463d
+VULNERABILITY_THRESHOLD=3
+```
+
+#### Optional: Slack Notifications
+```bash
+# SLACK_DSN=slack://TOKEN@default?channel=CHANNEL
+```
+
+### 3. Start Docker Services
+```bash
 docker-compose up -d
+```
 
-# Run database migrations
-docker-compose exec php php bin/console doctrine:migrations:migrate --no-interaction
+Wait for all services to be healthy (30-60 seconds):
+```bash
+docker-compose ps
+```
 
-# Load initial data (providers)
-docker-compose exec php php bin/console doctrine:fixtures:load --no-interaction
+### 4. Run Database Migrations
+```bash
+docker exec backend-home-task-php-1 php bin/console doctrine:migrations:migrate --no-interaction
+```
 
-# Run tests (188 tests, 696 assertions)
-docker-compose exec php php bin/phpunit
+### 5. Load Initial Data
+```bash
+docker exec backend-home-task-php-1 php bin/console doctrine:fixtures:load --no-interaction
+```
 
-# Access the application
+This loads security scan providers (Debricked, Snyk).
+
+### 6. Verify Installation
+```bash
+# Check application health
 curl http://localhost:8888/health/ready
+
+# Expected response:
+# {"status":"ready","checks":{"database":true,"filesystem":true},"timestamp":"..."}
+
+# Run tests
+docker exec backend-home-task-php-1 php bin/phpunit
+
+# Expected: OK (188 tests, 696 assertions)
 ```
 
-### Architecture Overview
-- **Symfony 7.3** - PHP framework with API-first design
-- **MySQL 8.0** - Primary database (port 3307)
-- **RabbitMQ** - Async message processing (ports 5672, 15672)
-- **Nginx** - Web server with rate limiting (port 8888)
-- **Mailpit** - Email testing UI (ports 1025, 8025)
-- **LocalStack** - AWS services emulator (port 4566)
+## Accessing Services
 
-### Service Ports
-| Service | Host Port | Container Port | Access |
-|---------|-----------|----------------|--------|
-| **Nginx (API)** | 8888 | 80 | http://localhost:8888 |
-| **MySQL** | 3307 | 3306 | mysql://localhost:3307 |
-| **RabbitMQ AMQP** | 5672 | 5672 | amqp://localhost:5672 |
-| **RabbitMQ Management** | 15672 | 15672 | http://localhost:15672 |
-| **Mailpit SMTP** | 1025 | 1025 | smtp://localhost:1025 |
-| **Mailpit Web UI** | 8025 | 8025 | http://localhost:8025 |
-| **LocalStack** | 4566 | 4566 | http://localhost:4566 |
+| Service | URL | Credentials |
+|---------|-----|-------------|
+| **API** | http://localhost:8888 | - |
+| **API Health** | http://localhost:8888/health/ready | - |
+| **MySQL** | localhost:3307 | root / docker |
+| **RabbitMQ Management** | http://localhost:15672 | rabbit / docker |
+| **Mailpit Web UI** | http://localhost:8025 | - |
+| **LocalStack** | http://localhost:4566 | test / test |
 
-**Credentials** (see `.env` file):
-- MySQL: root / docker
-- RabbitMQ: rabbit / docker
-- LocalStack: test / test
+## Common Operations
 
-## Key Features
+### Running Commands
 
-### 1. Health Monitoring
-Kubernetes-compatible health check endpoints for container orchestration:
-- **Liveness**: `GET /health/live` - Returns 200 if application is running
-- **Readiness**: `GET /health/ready` - Returns 200 if dependencies (DB, filesystem) are available
+All commands should be executed using the container name:
 
 ```bash
-curl http://localhost:8888/health/ready
-# {"status":"ready","checks":{"database":true,"filesystem":true},"timestamp":"2025-11-02T12:00:00+00:00"}
+# General pattern
+docker exec backend-home-task-php-1 php bin/console <command>
+
+# Access container shell
+docker exec -it backend-home-task-php-1 bash
 ```
 
-### 2. Rate Limiting
-Three-tier nginx-based rate limiting protects API endpoints:
+### Database Operations
 
-| Endpoint | Limit | Burst | Use Case |
-|----------|-------|-------|----------|
-| `/api/*` | 100/min | 20 | General API calls |
-| `/api/repositories/{id}/scans` | 20/min | 10 | Scan creation |
-| `/api/scans/{id}/files` | 10/min | 5 | File uploads |
-
-Rate-limited requests return `429 Too Many Requests` with JSON error message.
-
-### 3. Async Processing
-RabbitMQ message bus handles long-running scan operations:
-- `async` transport - General async tasks
-- `scan_status` transport - Scan status polling
-- `messenger-worker` container processes queued jobs
-
-### 4. Notification System
-Multi-channel notifications via Symfony Notifier:
-- **Email** - Sent to Mailpit (development) or SMTP (production)
-- **Slack** - Chat notifications for scan results
-- Configurable per rule action type
-
-### 5. AWS Integration
-LocalStack emulates AWS services for development:
-- **S3** - File storage (bucket: `rule-engine-files`, auto-created)
-- **Available services**: SQS, SNS, DynamoDB, Lambda, Secrets Manager
-
-## Docker Environment
-
-### Essential Commands
 ```bash
-# Start services (detached mode)
-docker-compose up -d
+# Run migrations
+docker exec backend-home-task-php-1 php bin/console doctrine:migrations:migrate --no-interaction
 
-# Stop services
-docker-compose down
+# Create new migration
+docker exec backend-home-task-php-1 php bin/console make:migration
 
-# View logs
-docker-compose logs -f nginx php
+# Validate schema
+docker exec backend-home-task-php-1 php bin/console doctrine:schema:validate
 
-# Access PHP shell
-docker-compose exec php bash
-
-# Restart specific service
-docker-compose restart nginx
+# Load fixtures
+docker exec backend-home-task-php-1 php bin/console doctrine:fixtures:load --no-interaction
 ```
 
-### Health Status
+### Testing
+
 ```bash
-# Check service health
+# Run all tests
+docker exec backend-home-task-php-1 php bin/phpunit
+
+# Run specific test file
+docker exec backend-home-task-php-1 php bin/phpunit tests/Service/ScanServiceTest.php
+
+# Generate coverage report
+docker exec backend-home-task-php-1 php bin/phpunit --coverage-html coverage
+```
+
+### Viewing Logs
+
+```bash
+# All services
+docker-compose logs -f
+
+# Specific service
+docker-compose logs -f nginx
+docker-compose logs -f backend-home-task-php-1
+
+# Application logs (stdout/stderr)
+docker exec backend-home-task-php-1 tail -f /proc/1/fd/1
+```
+
+## Troubleshooting
+
+### Services Not Starting
+
+```bash
+# Check service status
 docker-compose ps
 
-# Test application health
+# View logs for errors
+docker-compose logs nginx
+docker-compose logs backend-home-task-php-1
+docker-compose logs backend-home-task-db-1
+
+# Restart all services
+docker-compose restart
+
+# Full rebuild
+docker-compose down
+docker-compose build --no-cache
+docker-compose up -d
+```
+
+### Database Connection Issues
+
+```bash
+# Test database connectivity
+docker exec backend-home-task-db-1 mysqladmin ping -p
+# Password: docker
+
+# Check if database exists
+docker exec backend-home-task-db-1 mysql -u root -pdocker -e "SHOW DATABASES;"
+
+# Verify migrations ran
+docker exec backend-home-task-php-1 php bin/console doctrine:migrations:status
+```
+
+### Port Conflicts
+
+If ports are already in use, edit `docker-compose.yaml` to change port mappings:
+```yaml
+ports:
+  - "9999:80"  # Change 8888 to 9999
+```
+
+### Clear Cache
+
+```bash
+# Clear Symfony cache
+docker exec backend-home-task-php-1 php bin/console cache:clear
+
+# Clear all cache pools
+docker exec backend-home-task-php-1 php bin/console cache:pool:clear cache.global_clearer
+```
+
+### Tests Failing
+
+```bash
+# Validate database schema
+docker exec backend-home-task-php-1 php bin/console doctrine:schema:validate
+
+# Check for migrations
+docker exec backend-home-task-php-1 php bin/console doctrine:migrations:status
+
+# Run specific test with verbose output
+docker exec backend-home-task-php-1 php bin/phpunit tests/Path/To/Test.php --verbose
+```
+
+### Debricked API Issues
+
+Check environment variables are set correctly:
+```bash
+docker exec backend-home-task-php-1 env | grep DEBRICKED
+```
+
+Expected output:
+```
+DEBRICKED_USERNAME=your_username
+DEBRICKED_PASSWORD=your_password
+DEBRICKED_REFRESH_TOKEN=your_token
+DEBRICKED_API_BASE=https://debricked.com/api
+```
+
+### Container Name Not Found
+
+List running containers:
+```bash
+docker ps --format "table {{.Names}}\t{{.Status}}"
+```
+
+Container names may vary. Update commands accordingly.
+
+## API Documentation
+
+### Health Endpoints
+```bash
+# Liveness probe (is application running?)
+curl http://localhost:8888/health/live
+
+# Readiness probe (are dependencies available?)
 curl http://localhost:8888/health/ready
 ```
 
-## API Endpoints
-
-### Core Endpoints
-```bash
-# Home / Health (basic)
-GET http://localhost:8888/
-
-# Liveness probe (K8s)
-GET http://localhost:8888/health/live
-
-# Readiness probe (K8s)
-GET http://localhost:8888/health/ready
-```
-
-### Repository Management
+### Repository Endpoints
 ```bash
 # List repositories
 GET /api/repositories
 
 # Create repository
 POST /api/repositories
+Content-Type: application/json
+{
+  "name": "my-repo",
+  "url": "https://github.com/user/repo"
+}
 
 # Get repository
 GET /api/repositories/{id}
 
-# Initiate scan
+# Initiate security scan
 POST /api/repositories/{id}/scans
 ```
 
-### Scan Management
+### Scan Endpoints
 ```bash
-# Upload scan files
+# Upload files for scanning
 POST /api/scans/{id}/files
 
 # Get scan status
@@ -174,254 +303,79 @@ GET /api/scans/{id}
 GET /api/scans/{id}/vulnerabilities
 ```
 
-**Rate Limits Apply** - See rate limiting configuration in nginx (100/min default, 20/min scans, 10/min uploads)
+### Rate Limits
 
-## Database Management
+Nginx enforces per-IP rate limiting:
 
-The application uses MySQL as the database backend. The database configuration is already set up in `.env` and `docker-compose.yaml`.
+| Endpoint | Rate | Burst | On Exceed |
+|----------|------|-------|-----------|
+| `/api/*` | 100/min | 20 | 429 JSON error |
+| `/api/repositories/{id}/scans` | 20/min | 10 | 429 JSON error |
+| `/api/scans/{id}/files` | 10/min | 5 | 429 JSON error |
 
-### Database Connection Details
-- **Host**: `db` (within Docker network) or `localhost:3307` (from host machine)
-- **Database**: `rule_engine`
-- **Username**: `root`
-- **Password**: `docker`
+## Technical Details
 
-### Database Commands
+### Stack
+- **Framework:** Symfony 7.3
+- **Database:** MySQL 8.0
+- **Queue:** RabbitMQ 3.9
+- **Web Server:** Nginx (with rate limiting)
+- **Email:** Mailpit (development)
+- **AWS Emulator:** LocalStack
+- **Testing:** PHPUnit 9.5 with PCOV
 
-#### Database Operations
-```bash
-# Create database (if not exists)
-docker compose exec php php bin/console doctrine:database:create --if-not-exists
+### Entities
+- **Upload** - File upload metadata (repository, commit, timestamp)
+- **ScanResult** - Scan execution results
+- **Vulnerability** - Security vulnerabilities found
 
-# Drop database (be careful!)
-docker compose exec php php bin/console doctrine:database:drop --force
-```
+### Async Processing
+- Long-running scans processed via RabbitMQ
+- Dedicated `messenger-worker` container
+- Two transports: `async` (general), `scan_status` (polling)
 
-#### Migration Management
-```bash
-# Generate new migration from entity changes
-docker compose exec php php bin/console make:migration
+### Notifications
+- Email via Symfony Mailer (Mailpit in dev)
+- Slack webhooks (optional)
+- Configurable per rule action
 
-# Run pending migrations
-docker compose exec php php bin/console doctrine:migrations:migrate --no-interaction
+### Logging
+- Structured JSON logs to stdout/stderr (production)
+- Monolog handlers for different environments
+- No file-based logging (12-factor compliance)
 
-# Check migration status
-docker compose exec php php bin/console doctrine:migrations:status
 
-# Execute specific migration
-docker compose exec php php bin/console doctrine:migrations:execute DoctrineMigrations\\VersionXXXXXXXXXXXXXX
-```
 
-#### Schema Operations
-```bash
-# Validate mapping and database schema
-docker compose exec php php bin/console doctrine:schema:validate
+## Architecture
 
-# Show SQL needed to update schema (dry run)
-docker compose exec php php bin/console doctrine:schema:update --dump-sql
+**Principles:** 12-Factor App, environment-based config, stateless processes, structured logging
 
-# Update schema directly (not recommended for production)
-docker compose exec php php bin/console doctrine:schema:update --force
-```
-
-#### Entity Management
-```bash
-# Create new entity
-docker compose exec php php bin/console make:entity EntityName
-
-# Generate repository class
-docker compose exec php php bin/console make:repository EntityName
-```
-
-### Current Entities
-The application includes the following entities:
-- **Upload**: Stores file upload information with repository and commit context
-- **ScanResult**: Stores scanning results linked to uploads
-- **Vulnerability**: Stores vulnerability information found during scans
-
-### Database Access
-You can access the MySQL database directly using any MySQL client:
-```bash
-# From host machine
-mysql -h 127.0.0.1 -P 3307 -u root -p rule_engine
-# Password: docker
-
-# From within Docker network
-docker compose exec db mysql -u root -p rule_engine
-# Password: docker
-```
-
-## Testing
-
-### Test Suite
-**PHPUnit 9.5** with **PCOV** for code coverage (configured in `docker/php/Dockerfile`)
-
-```bash
-# Run all tests (188 tests, 696 assertions)
-docker-compose exec php php bin/phpunit
-
-# Run specific test suite
-docker-compose exec php php bin/phpunit tests/Service/
-docker-compose exec php php bin/phpunit tests/Controller/
-
-# Run with coverage report
-docker-compose exec php php bin/phpunit --coverage-text
-
-# Generate HTML coverage report
-docker-compose exec php php bin/phpunit --coverage-html coverage
-```
-
-### Test Statistics
-- **Total**: 188 tests, 696 assertions
-- **Execution Time**: ~40-60 seconds
-- **Memory Usage**: ~38 MB
-
-### High-Coverage Components
-- `ScanService` - 100% coverage (16 tests)
-- `ScanController` - 100% coverage (12 tests)
-- `RepositoryService` - Comprehensive service layer tests
-- Health checks, message handlers, provider adapters
-
-## Data Fixtures
-
-The application uses Doctrine Fixtures for seeding initial data.
-
-### Loading Fixtures
-
-```bash
-# Load all fixtures (will purge existing data)
-docker compose exec php php bin/console doctrine:fixtures:load --no-interaction
-
-# Append fixtures without purging
-docker compose exec php php bin/console doctrine:fixtures:load --append
-```
-
-### Available Fixtures
-
-- **ProviderFixtures**: Seeds security scanning providers (Debricked, Snyk)
-
-## Architecture & Design Decisions
-
-### 12-Factor App Compliance
-This application follows [12-Factor App](https://12factor.net/) methodology:
-- ✅ **Config** - Environment-based configuration via `.env`
-- ✅ **Dependencies** - Explicit declaration via `composer.json`
-- ✅ **Build, Release, Run** - Docker containers provide immutable releases
-- ✅ **Processes** - Stateless execution, state in MySQL/RabbitMQ
-- ✅ **Port Binding** - Self-contained web server (nginx + PHP-FPM)
-- ✅ **Concurrency** - Horizontal scaling via message workers
-- ✅ **Disposability** - Fast startup/shutdown, graceful termination
-- ✅ **Dev/Prod Parity** - Docker ensures environment consistency
-- ✅ **Logs** - Structured logging to stdout/stderr via Monolog
-- ✅ **Admin Processes** - Console commands for migrations, fixtures
-
-### Key Technical Choices
-
-**1. Nginx Rate Limiting over Application-Level**
-- **Why**: Better performance, protects PHP-FPM pool, prevents resource exhaustion
-- **Trade-off**: Less granular control (IP-based only, no API key-based limits)
-- **Location**: `docker/nginx/default.conf`
-
-**2. Structured Logging with Monolog**
-- **Why**: Container-friendly (stdout/stderr), JSON format for log aggregation
-- **Removed**: 10 debug file writes (`/tmp/debricked-*.txt`) for 12-factor compliance
-- **Config**: `config/packages/prod/monolog.yaml`, `config/packages/dev/monolog.yaml`
-
-**3. Async Processing with RabbitMQ**
-- **Why**: Long-running scans don't block API responses, horizontal scalability
-- **Implementation**: Symfony Messenger with `async` and `scan_status` transports
-- **Worker**: Dedicated `messenger-worker` container processes queued jobs
-
-**4. Provider Abstraction Layer**
-- **Pattern**: Adapter pattern for multiple scan providers (Debricked, Snyk)
-- **Benefits**: Easy to add new providers, consistent interface
-- **Location**: `src/Service/Provider/`
-
-**5. Health Checks for Orchestration**
-- **Why**: K8s/Docker Swarm compatibility, load balancer integration
-- **Endpoints**: `/health/live` (liveness), `/health/ready` (readiness with dependency checks)
-- **Config**: `docker-compose.yaml` healthcheck directives
-
-### Testing Strategy
-- **Unit Tests**: Service layer business logic (188 tests)
-- **Integration Tests**: Database operations, message bus, API endpoints
-- **Coverage**: PCOV extension for fast coverage reports
-- **CI-Ready**: Exit code 0 on success, non-zero on failure
-
-### Performance Considerations
-- **Database Indexing**: Primary keys, foreign keys on high-traffic tables
-- **Query Optimization**: Doctrine ORM with query builder, lazy loading
-- **Caching**: Framework cache via `cache.yaml` (file system adapter)
-- **Connection Pooling**: PHP-FPM with 5 child processes, nginx upstream
+**Key Decisions:**
+- Nginx rate limiting for performance
+- RabbitMQ async processing with dedicated worker
+- Stdout/stderr logging (container-friendly)
+- Provider adapter pattern for multiple scan services
+- K8s-compatible health checks
 
 ## Project Structure
 ```
-├── bin/                    # Console commands (console, phpunit)
-├── config/                 # Symfony configuration
-│   ├── packages/          # Bundle configs (framework, doctrine, monolog)
-│   └── routes/            # Routing configuration
-├── docker/                # Docker configuration
-│   ├── nginx/             # Nginx config with rate limiting
-│   ├── php/               # PHP-FPM Dockerfile
-│   └── localstack/        # LocalStack init scripts
-├── public/                # Web root (index.php)
-├── src/
-│   ├── Controller/        # API endpoints
-│   ├── Entity/            # Doctrine entities
-│   ├── Repository/        # Database repositories
-│   ├── Service/           # Business logic
-│   │   └── Provider/      # Scan provider adapters
-│   ├── MessageHandler/    # Async message handlers
-│   └── Kernel.php         # Application kernel
-├── tests/                 # PHPUnit tests (188 tests)
-├── .env                   # Environment configuration
-├── composer.json          # PHP dependencies
-└── docker-compose.yaml    # Service orchestration
+src/
+├── Controller/         # API endpoints
+├── Entity/            # Database models (Upload, ScanResult, Vulnerability)
+├── Service/           # Business logic
+│   └── Provider/      # Scan provider adapters (Debricked, Snyk)
+├── MessageHandler/    # Async job handlers
+└── Repository/        # Database repositories
+
+config/
+├── packages/          # Bundle configuration
+└── routes/            # Route definitions
+
+docker/
+├── nginx/             # Web server + rate limiting
+├── php/               # PHP-FPM container
+└── localstack/        # AWS emulator setup
+
+tests/                 # PHPUnit tests (188 tests, 696 assertions)
 ```
 
-## Common Issues & Solutions
-
-### Port Already in Use
-```bash
-# Check what's using port 8888
-netstat -ano | findstr :8888  # Windows
-lsof -i :8888                 # Linux/Mac
-
-# Use different port
-# Edit docker-compose.yaml: "9999:80" instead of "8888:80"
-```
-
-### Container Won't Start
-```bash
-# View logs
-docker-compose logs nginx php db
-
-# Rebuild containers
-docker-compose down
-docker-compose build --no-cache
-docker-compose up -d
-```
-
-### Database Connection Failed
-```bash
-# Ensure MySQL is ready
-docker-compose exec db mysqladmin ping -p
-
-# Check migrations
-docker-compose exec php php bin/console doctrine:migrations:status
-
-# Run migrations
-docker-compose exec php php bin/console doctrine:migrations:migrate --no-interaction
-```
-
-### Tests Failing
-```bash
-# Clear cache
-docker-compose exec php php bin/console cache:clear
-
-# Run specific failing test
-docker-compose exec php php bin/phpunit tests/Path/To/TestFile.php --verbose
-
-# Check database schema
-docker-compose exec php php bin/console doctrine:schema:validate
-```
