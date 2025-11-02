@@ -43,6 +43,12 @@ services:
         restart: on-failure
         networks:
             - backend
+        healthcheck:
+            test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-pdocker"]
+            interval: 30s
+            timeout: 10s
+            retries: 3
+            start_period: 40s
 
     rabbitmq:
         image: rabbitmq:3.9-management-alpine
@@ -60,6 +66,12 @@ services:
         ports:
             - "5672:5672"
             - "15672:15672"
+        healthcheck:
+            test: ["CMD", "rabbitmq-diagnostics", "ping"]
+            interval: 30s
+            timeout: 10s
+            retries: 3
+            start_period: 40s
 
     localstack:
         image: localstack/localstack:latest
@@ -112,6 +124,12 @@ services:
         shm_size: 2g
         networks:
             - backend
+        healthcheck:
+            test: ["CMD-SHELL", "php-fpm-healthcheck || exit 1"]
+            interval: 30s
+            timeout: 10s
+            retries: 3
+            start_period: 40s
 
     nginx:
         image: nginx:latest
@@ -135,6 +153,12 @@ services:
         networks:
             - backend
             - frontend
+        healthcheck:
+            test: ["CMD-SHELL", "curl -f http://localhost/health/ready || exit 1"]
+            interval: 30s
+            timeout: 10s
+            retries: 3
+            start_period: 40s
 
     messenger-worker:
         build:

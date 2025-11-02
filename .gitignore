@@ -16,3 +16,7 @@
 
 .idea/commandlinetools
 /dev-resources/
+
+# Documentation files (internal notes)
+12-FACTOR-AUDIT.md
+IMPLEMENTATION-GUIDE.md
