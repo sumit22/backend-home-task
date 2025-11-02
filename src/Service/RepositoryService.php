@@ -43,39 +43,47 @@ class RepositoryService implements RepositoryServiceInterface
         $defaultBranch = $data['default_branch'] ?? null;
         $settings = $data['settings'] ?? null;
 
-        $repo = new RepositoryEntity();
-        $repo->setName($name);
-        if ($url) {
-            $repo->setUrl($url);
-        }
-        if ($defaultBranch) {
-            $repo->setDefaultBranch($defaultBranch);
-        }
-        if ($settings) {
-            $repo->setSettings($settings);
-        }
-        
-        $this->em->persist($repo);
-
-        if (!empty($data['notification_settings']) && is_array($data['notification_settings'])) {
-            $ns = $data['notification_settings'];
-            $notif = new NotificationSetting();
-            $notif->setRepository($repo);
-            if (isset($ns['emails'])) {
-                $notif->setEmails($ns['emails']);
+        // Use transaction to ensure atomicity when creating repo + notification settings
+        $this->em->beginTransaction();
+        try {
+            $repo = new RepositoryEntity();
+            $repo->setName($name);
+            if ($url) {
+                $repo->setUrl($url);
             }
-            if (isset($ns['slack_channels'])) {
-                $notif->setSlackChannels($ns['slack_channels']);
+            if ($defaultBranch) {
+                $repo->setDefaultBranch($defaultBranch);
             }
-            if (isset($ns['webhooks'])) {
-                $notif->setWebhooks($ns['webhooks']);
+            if ($settings) {
+                $repo->setSettings($settings);
             }
-            $this->em->persist($notif);
+            
+            $this->em->persist($repo);
+
+            if (!empty($data['notification_settings']) && is_array($data['notification_settings'])) {
+                $ns = $data['notification_settings'];
+                $notif = new NotificationSetting();
+                $notif->setRepository($repo);
+                if (isset($ns['emails'])) {
+                    $notif->setEmails($ns['emails']);
+                }
+                if (isset($ns['slack_channels'])) {
+                    $notif->setSlackChannels($ns['slack_channels']);
+                }
+                if (isset($ns['webhooks'])) {
+                    $notif->setWebhooks($ns['webhooks']);
+                }
+                $this->em->persist($notif);
+            }
+
+            $this->em->flush();
+            $this->em->commit();
+
+            return $repo;
+        } catch (\Exception $e) {
+            $this->em->rollback();
+            throw $e;
         }
-
-        $this->em->flush();
-
-        return $repo;
     }
 
     public function getRepository(string $id): ?RepositoryEntity

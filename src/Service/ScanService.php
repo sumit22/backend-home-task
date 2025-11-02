@@ -63,49 +63,61 @@ class ScanService implements ScanServiceInterface
             throw new \InvalidArgumentException('Too many files in request');
         }
 
-        $stored = [];
-        foreach ($files as $file) {
-            if (!$file instanceof UploadedFile) continue;
+        // Use transaction to ensure atomicity of file uploads + DB records + status update
+        $this->em->beginTransaction();
+        try {
+            $stored = [];
+            foreach ($files as $file) {
+                if (!$file instanceof UploadedFile) continue;
 
-            $ext = strtolower($file->getClientOriginalExtension());
-            if (!in_array($ext, self::ALLOWED_EXT, true)) {
-                throw new \InvalidArgumentException("Extension .$ext not allowed");
+                $ext = strtolower($file->getClientOriginalExtension());
+                if (!in_array($ext, self::ALLOWED_EXT, true)) {
+                    throw new \InvalidArgumentException("Extension .$ext not allowed");
+                }
+                if ($file->getSize() === 0 || $file->getSize() === null) {
+                    throw new \InvalidArgumentException("File cannot be empty");
+                }
+                if ($file->getSize() > self::MAX_FILE_SIZE) {
+                    throw new \InvalidArgumentException("File exceeds max size");
+                }
+
+                $safe = bin2hex(random_bytes(6)) . '-' . preg_replace('/[^A-Za-z0-9_.-]/', '_', $file->getClientOriginalName());
+                $path = sprintf('uploads/%s/%s', $scanId, $safe);
+
+                $stream = fopen($file->getRealPath(), 'rb');
+                $this->filesystem->writeStream($path, $stream);
+                if (is_resource($stream)) fclose($stream);
+
+                $entity = new FilesInScan();
+                $entity->setRepositoryScan($scan);
+                $entity->setFileName($file->getClientOriginalName());
+                $entity->setFilePath($path);
+                $entity->setSize((int)$file->getSize());
+                $this->em->persist($entity);
+                $scan->addFilesInScan($entity);
+                $stored[] = $entity;
             }
-            if ($file->getSize() === 0 || $file->getSize() === null) {
-                throw new \InvalidArgumentException("File cannot be empty");
+
+            // update DB
+            $this->em->flush();
+
+            if ($uploadComplete) {
+                // Use state machine for transition
+                $this->stateMachine->transition($scan, 'uploaded', 'All files uploaded successfully');
             }
-            if ($file->getSize() > self::MAX_FILE_SIZE) {
-                throw new \InvalidArgumentException("File exceeds max size");
+
+            $this->em->commit();
+
+            if ($uploadComplete) {
+                // dispatch start provider scan async (after commit)
+                $this->bus->dispatch(new \App\Message\StartProviderScanMessage($scan->getId()));
             }
 
-            $safe = bin2hex(random_bytes(6)) . '-' . preg_replace('/[^A-Za-z0-9_.-]/', '_', $file->getClientOriginalName());
-            $path = sprintf('uploads/%s/%s', $scanId, $safe);
-
-            $stream = fopen($file->getRealPath(), 'rb');
-            $this->filesystem->writeStream($path, $stream);
-            if (is_resource($stream)) fclose($stream);
-
-            $entity = new FilesInScan();
-            $entity->setRepositoryScan($scan);
-            $entity->setFileName($file->getClientOriginalName());
-            $entity->setFilePath($path);
-            $entity->setSize((int)$file->getSize());
-            $this->em->persist($entity);
-            $scan->addFilesInScan($entity);
-            $stored[] = $entity;
+            return $stored;
+        } catch (\Exception $e) {
+            $this->em->rollback();
+            throw $e;
         }
-
-        // update DB
-        $this->em->flush();
-
-        if ($uploadComplete) {
-            // Use state machine for transition
-            $this->stateMachine->transition($scan, 'uploaded', 'All files uploaded successfully');
-            // dispatch start provider scan async
-            $this->bus->dispatch(new \App\Message\StartProviderScanMessage($scan->getId()));
-        }
-
-        return $stored;
     }
 
     public function startProviderScan(string $scanId): void
