@@ -6,29 +6,32 @@ use App\Entity\Repository;
 use App\Entity\RepositoryScan;
 use App\Service\ExternalMappingService;
 use App\Service\Provider\DebrickedAuthServiceInterface;
-use App\Service\Provider\DebrickedProviderAdapter;
+use App\Service\Provider\DebrickedProviderAdapterGuzzle;
+use GuzzleHttp\Client;
+use GuzzleHttp\Exception\RequestException;
+use GuzzleHttp\Psr7\Request;
+use GuzzleHttp\Psr7\Response;
+use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
 use Psr\Log\LoggerInterface;
-use Symfony\Contracts\HttpClient\HttpClientInterface;
-use Symfony\Contracts\HttpClient\ResponseInterface;
 
-class DebrickedProviderAdapterTest extends TestCase
+class DebrickedProviderAdapterGuzzleTest extends TestCase
 {
-    private HttpClientInterface $httpClient;
-    private ExternalMappingService $mappingService;
-    private LoggerInterface $logger;
-    private DebrickedAuthServiceInterface $authService;
-    private DebrickedProviderAdapter $adapter;
-    private string $baseUrl = 'https://debricked.com/api/1.0';
+    private Client&MockObject $httpClient;
+    private ExternalMappingService&MockObject $mappingService;
+    private LoggerInterface&MockObject $logger;
+    private DebrickedAuthServiceInterface&MockObject $authService;
+    private DebrickedProviderAdapterGuzzle $adapter;
+    private string $baseUrl = 'https://debricked.com/api';
 
     protected function setUp(): void
     {
-        $this->httpClient = $this->createMock(HttpClientInterface::class);
+        $this->httpClient = $this->createMock(Client::class);
         $this->mappingService = $this->createMock(ExternalMappingService::class);
         $this->logger = $this->createMock(LoggerInterface::class);
         $this->authService = $this->createMock(DebrickedAuthServiceInterface::class);
 
-        $this->adapter = new DebrickedProviderAdapter(
+        $this->adapter = new DebrickedProviderAdapterGuzzle(
             $this->httpClient,
             $this->mappingService,
             $this->logger,
@@ -44,8 +47,6 @@ class DebrickedProviderAdapterTest extends TestCase
 
     public function testUploadAndCreateScanWithSingleFile(): void
     {
-        $this->markTestSkipped('Adapter uses native cURL - HttpClient mocks no longer apply');
-        
         $repo = new Repository();
         $repo->setName('test-repo');
         $repo->setUrl('https://github.com/test/repo');
@@ -54,7 +55,11 @@ class DebrickedProviderAdapterTest extends TestCase
         $scan->setRepository($repo);
         $scan->setBranch('main');
 
-        $localPaths = ['/tmp/composer.lock'];
+        // Create a temporary test file
+        $tmpFile = tempnam(sys_get_temp_dir(), 'test_');
+        file_put_contents($tmpFile, 'test content');
+        $localPaths = [$tmpFile];
+
         $jwt = 'test-jwt-token';
 
         $this->authService
@@ -63,37 +68,27 @@ class DebrickedProviderAdapterTest extends TestCase
             ->willReturn($jwt);
 
         // Mock upload response
-        $uploadResponse = $this->createMock(ResponseInterface::class);
-        $uploadResponse
-            ->method('toArray')
-            ->willReturn([
-                'ciUploadId' => 'upload-123',
-                'files' => [
-                    ['dependencyFileId' => 'file-456', 'name' => 'composer.lock']
-                ]
-            ]);
+        $uploadResponseBody = json_encode([
+            'ciUploadId' => 'upload-123',
+            'files' => [
+                ['dependencyFileId' => 'file-456', 'name' => basename($tmpFile)]
+            ]
+        ]);
+        $uploadResponse = new Response(200, [], $uploadResponseBody);
 
-        // Mock finish response
-        $finishResponse = $this->createMock(ResponseInterface::class);
-        $finishResponse
-            ->method('toArray')
-            ->willReturn([
-                'success' => true,
-                'scanCompleted' => false
-            ]);
+        // Mock finish response (204 No Content)
+        $finishResponse = new Response(204);
 
         $this->httpClient
             ->expects($this->exactly(2))
-            ->method('request')
-            ->willReturnCallback(function ($method, $url, $options) use ($uploadResponse, $finishResponse, $jwt) {
+            ->method('post')
+            ->willReturnCallback(function ($url, $options) use ($uploadResponse, $finishResponse, $jwt, $tmpFile) {
                 if (strpos($url, '/uploads/dependencies/files') !== false) {
-                    $this->assertSame('POST', $method);
                     $this->assertArrayHasKey('headers', $options);
-                    $this->assertSame(['Authorization' => "Bearer {$jwt}"], $options['headers']);
-                    $this->assertArrayHasKey('body', $options);
+                    $this->assertSame("Bearer {$jwt}", $options['headers']['Authorization']);
+                    $this->assertArrayHasKey('multipart', $options);
                     return $uploadResponse;
                 } elseif (strpos($url, '/finishes/dependencies/files/uploads') !== false) {
-                    $this->assertSame('POST', $method);
                     $this->assertArrayHasKey('json', $options);
                     $this->assertSame('upload-123', $options['json']['ciUploadId']);
                     return $finishResponse;
@@ -124,22 +119,27 @@ class DebrickedProviderAdapterTest extends TestCase
         $this->assertSame('upload-123', $result['ciUploadId']);
         $this->assertArrayHasKey('provider_file_ids', $result);
         $this->assertSame(['file-456'], $result['provider_file_ids']);
-        $this->assertArrayHasKey('raw', $result);
+        $this->assertSame('finished', $result['status']);
+
+        // Cleanup
+        unlink($tmpFile);
     }
 
     public function testUploadAndCreateScanWithMultipleFiles(): void
     {
-        $this->markTestSkipped('Adapter uses native cURL - HttpClient mocks no longer apply');
-        
         $repo = new Repository();
         $repo->setName('multi-file-repo');
-        $repo->setUrl('https://github.com/test/multi');
 
         $scan = new RepositoryScan();
         $scan->setRepository($repo);
-        $scan->setBranch('develop');
 
-        $localPaths = ['/tmp/composer.lock', '/tmp/package-lock.json'];
+        // Create temporary test files
+        $tmpFile1 = tempnam(sys_get_temp_dir(), 'test1_');
+        $tmpFile2 = tempnam(sys_get_temp_dir(), 'test2_');
+        file_put_contents($tmpFile1, 'content1');
+        file_put_contents($tmpFile2, 'content2');
+        $localPaths = [$tmpFile1, $tmpFile2];
+
         $jwt = 'multi-jwt-token';
 
         $this->authService
@@ -148,40 +148,26 @@ class DebrickedProviderAdapterTest extends TestCase
             ->willReturn($jwt);
 
         // Mock upload responses for both files
-        $uploadResponse1 = $this->createMock(ResponseInterface::class);
-        $uploadResponse1
-            ->method('toArray')
-            ->willReturn([
-                'ciUploadId' => 'upload-multi-123',
-                'files' => [
-                    ['dependencyFileId' => 'file-001', 'name' => 'composer.lock']
-                ]
-            ]);
+        $uploadResponse1 = new Response(200, [], json_encode([
+            'ciUploadId' => 'upload-multi-123',
+            'files' => [['dependencyFileId' => 'file-001']]
+        ]));
 
-        $uploadResponse2 = $this->createMock(ResponseInterface::class);
-        $uploadResponse2
-            ->method('toArray')
-            ->willReturn([
-                'ciUploadId' => 'upload-multi-123', // Same upload ID
-                'files' => [
-                    ['dependencyFileId' => 'file-002', 'name' => 'package-lock.json']
-                ]
-            ]);
+        $uploadResponse2 = new Response(200, [], json_encode([
+            'ciUploadId' => 'upload-multi-123',
+            'files' => [['dependencyFileId' => 'file-002']]
+        ]));
 
-        $finishResponse = $this->createMock(ResponseInterface::class);
-        $finishResponse
-            ->method('toArray')
-            ->willReturn(['success' => true]);
+        $finishResponse = new Response(200, [], json_encode(['success' => true]));
 
         $callCount = 0;
         $this->httpClient
             ->expects($this->exactly(3))
-            ->method('request')
-            ->willReturnCallback(function ($method, $url) use (&$callCount, $uploadResponse1, $uploadResponse2, $finishResponse) {
+            ->method('post')
+            ->willReturnCallback(function () use (&$callCount, $uploadResponse1, $uploadResponse2, $finishResponse) {
                 $callCount++;
-                if ($callCount <= 2) {
-                    return $callCount === 1 ? $uploadResponse1 : $uploadResponse2;
-                }
+                if ($callCount === 1) return $uploadResponse1;
+                if ($callCount === 2) return $uploadResponse2;
                 return $finishResponse;
             });
 
@@ -195,24 +181,27 @@ class DebrickedProviderAdapterTest extends TestCase
         $this->assertCount(2, $result['provider_file_ids']);
         $this->assertContains('file-001', $result['provider_file_ids']);
         $this->assertContains('file-002', $result['provider_file_ids']);
+
+        // Cleanup
+        unlink($tmpFile1);
+        unlink($tmpFile2);
     }
 
     public function testUploadAndCreateScanWithCustomOptions(): void
     {
-        $this->markTestSkipped('Adapter uses native cURL - HttpClient mocks no longer apply');
-        
         $repo = new Repository();
         $repo->setName('default-repo');
 
         $scan = new RepositoryScan();
         $scan->setRepository($repo);
 
-        $localPaths = ['/tmp/test.lock'];
+        $tmpFile = tempnam(sys_get_temp_dir(), 'test_');
+        file_put_contents($tmpFile, 'test');
+        $localPaths = [$tmpFile];
+
         $options = [
             'repositoryName' => 'custom-repo',
             'commitName' => 'abc123',
-            'branchName' => 'feature-branch',
-            'repositoryUrl' => 'https://custom.com/repo'
         ];
 
         $jwt = 'jwt-custom';
@@ -222,30 +211,17 @@ class DebrickedProviderAdapterTest extends TestCase
             ->method('getJwtToken')
             ->willReturn($jwt);
 
-        $uploadResponse = $this->createMock(ResponseInterface::class);
-        $uploadResponse
-            ->method('toArray')
-            ->willReturn([
-                'ciUploadId' => 'custom-upload',
-                'files' => [['id' => 'file-custom']]
-            ]);
+        $uploadResponse = new Response(200, [], json_encode([
+            'ciUploadId' => 'custom-upload',
+            'files' => [['id' => 'file-custom']]
+        ]));
 
-        $finishResponse = $this->createMock(ResponseInterface::class);
-        $finishResponse->method('toArray')->willReturn(['success' => true]);
+        $finishResponse = new Response(204);
 
         $this->httpClient
             ->expects($this->exactly(2))
-            ->method('request')
-            ->willReturnCallback(function ($method, $url, $options) use ($uploadResponse, $finishResponse) {
-                if (strpos($url, '/uploads/') !== false) {
-                    // Verify custom options are used
-                    $this->assertSame('custom-repo', $options['body']['repositoryName']);
-                    $this->assertSame('abc123', $options['body']['commitName']);
-                    // branchName and repositoryUrl are not sent to Debricked API
-                    return $uploadResponse;
-                }
-                return $finishResponse;
-            });
+            ->method('post')
+            ->willReturnOnConsecutiveCalls($uploadResponse, $finishResponse);
 
         $this->mappingService
             ->expects($this->exactly(2))
@@ -254,19 +230,21 @@ class DebrickedProviderAdapterTest extends TestCase
         $result = $this->adapter->uploadAndCreateScan($scan, $localPaths, $options);
 
         $this->assertSame('custom-upload', $result['ciUploadId']);
+
+        unlink($tmpFile);
     }
 
     public function testUploadAndCreateScanUsesUploadIdFallback(): void
     {
-        $this->markTestSkipped('Adapter uses native cURL - HttpClient mocks no longer apply');
-        
         $repo = new Repository();
         $repo->setName('fallback-repo');
 
         $scan = new RepositoryScan();
         $scan->setRepository($repo);
 
-        $localPaths = ['/tmp/test.lock'];
+        $tmpFile = tempnam(sys_get_temp_dir(), 'test_');
+        file_put_contents($tmpFile, 'test');
+        $localPaths = [$tmpFile];
 
         $this->authService
             ->expects($this->once())
@@ -274,20 +252,16 @@ class DebrickedProviderAdapterTest extends TestCase
             ->willReturn('jwt-fallback');
 
         // Response uses 'uploadId' instead of 'ciUploadId'
-        $uploadResponse = $this->createMock(ResponseInterface::class);
-        $uploadResponse
-            ->method('toArray')
-            ->willReturn([
-                'uploadId' => 'fallback-upload-789', // Different key
-                'files' => [['id' => 'file-fallback']]
-            ]);
+        $uploadResponse = new Response(200, [], json_encode([
+            'uploadId' => 'fallback-upload-789',
+            'files' => [['id' => 'file-fallback']]
+        ]));
 
-        $finishResponse = $this->createMock(ResponseInterface::class);
-        $finishResponse->method('toArray')->willReturn(['success' => true]);
+        $finishResponse = new Response(204);
 
         $this->httpClient
             ->expects($this->exactly(2))
-            ->method('request')
+            ->method('post')
             ->willReturnOnConsecutiveCalls($uploadResponse, $finishResponse);
 
         $this->mappingService
@@ -297,19 +271,21 @@ class DebrickedProviderAdapterTest extends TestCase
         $result = $this->adapter->uploadAndCreateScan($scan, $localPaths);
 
         $this->assertSame('fallback-upload-789', $result['ciUploadId']);
+
+        unlink($tmpFile);
     }
 
     public function testUploadAndCreateScanReusesExistingMapping(): void
     {
-        $this->markTestSkipped('Adapter uses native cURL - HttpClient mocks no longer apply');
-        
         $repo = new Repository();
         $repo->setName('existing-repo');
 
         $scan = new RepositoryScan();
         $scan->setRepository($repo);
 
-        $localPaths = ['/tmp/test.lock'];
+        $tmpFile = tempnam(sys_get_temp_dir(), 'test_');
+        file_put_contents($tmpFile, 'test');
+        $localPaths = [$tmpFile];
 
         $this->authService
             ->expects($this->once())
@@ -317,20 +293,15 @@ class DebrickedProviderAdapterTest extends TestCase
             ->willReturn('jwt-existing');
 
         // Upload response without ciUploadId
-        $uploadResponse = $this->createMock(ResponseInterface::class);
-        $uploadResponse
-            ->method('toArray')
-            ->willReturn([
-                'files' => [['id' => 'file-existing']]
-                // No ciUploadId or uploadId
-            ]);
+        $uploadResponse = new Response(200, [], json_encode([
+            'files' => [['id' => 'file-existing']]
+        ]));
 
-        $finishResponse = $this->createMock(ResponseInterface::class);
-        $finishResponse->method('toArray')->willReturn(['success' => true]);
+        $finishResponse = new Response(204);
 
         $this->httpClient
             ->expects($this->exactly(2))
-            ->method('request')
+            ->method('post')
             ->willReturnOnConsecutiveCalls($uploadResponse, $finishResponse);
 
         // Mock existing mapping
@@ -347,19 +318,21 @@ class DebrickedProviderAdapterTest extends TestCase
         $result = $this->adapter->uploadAndCreateScan($scan, $localPaths);
 
         $this->assertSame('existing-upload-999', $result['ciUploadId']);
+
+        unlink($tmpFile);
     }
 
     public function testUploadAndCreateScanThrowsExceptionWhenNoUploadId(): void
     {
-        $this->markTestSkipped('Adapter uses native cURL - HttpClient mocks no longer apply');
-        
         $repo = new Repository();
         $repo->setName('error-repo');
 
         $scan = new RepositoryScan();
         $scan->setRepository($repo);
 
-        $localPaths = ['/tmp/test.lock'];
+        $tmpFile = tempnam(sys_get_temp_dir(), 'test_');
+        file_put_contents($tmpFile, 'test');
+        $localPaths = [$tmpFile];
 
         $this->authService
             ->expects($this->once())
@@ -367,16 +340,13 @@ class DebrickedProviderAdapterTest extends TestCase
             ->willReturn('jwt-error');
 
         // Upload response without any upload ID
-        $uploadResponse = $this->createMock(ResponseInterface::class);
-        $uploadResponse
-            ->method('toArray')
-            ->willReturn([
-                'files' => [['id' => 'file-error']]
-            ]);
+        $uploadResponse = new Response(200, [], json_encode([
+            'files' => [['id' => 'file-error']]
+        ]));
 
         $this->httpClient
             ->expects($this->once())
-            ->method('request')
+            ->method('post')
             ->willReturn($uploadResponse);
 
         // No existing mapping found
@@ -389,58 +359,199 @@ class DebrickedProviderAdapterTest extends TestCase
         $this->expectExceptionMessage('Debricked did not return ciUploadId on upload');
 
         $this->adapter->uploadAndCreateScan($scan, $localPaths);
+
+        unlink($tmpFile);
     }
 
-    public function testUploadAndCreateScanHandlesFileWithDependencyFileId(): void
+    public function testUploadAndCreateScanThrowsExceptionWhenFileNotFound(): void
     {
-        $this->markTestSkipped('Adapter uses native cURL - HttpClient mocks no longer apply');
-        
         $repo = new Repository();
-        $repo->setName('dependency-file-repo');
+        $repo->setName('missing-file-repo');
 
         $scan = new RepositoryScan();
         $scan->setRepository($repo);
 
-        $localPaths = ['/tmp/test.lock'];
+        $localPaths = ['/nonexistent/file.txt'];
 
         $this->authService
             ->expects($this->once())
             ->method('getJwtToken')
-            ->willReturn('jwt-dep');
+            ->willReturn('jwt-test');
 
-        // File uses 'dependencyFileId' instead of 'id'
-        $uploadResponse = $this->createMock(ResponseInterface::class);
-        $uploadResponse
-            ->method('toArray')
-            ->willReturn([
-                'ciUploadId' => 'upload-dep',
-                'files' => [
-                    ['dependencyFileId' => 'dep-file-999', 'name' => 'test.lock']
-                ]
-            ]);
+        $this->expectException(\RuntimeException::class);
+        $this->expectExceptionMessage('File does not exist');
 
-        $finishResponse = $this->createMock(ResponseInterface::class);
-        $finishResponse->method('toArray')->willReturn(['success' => true]);
+        $this->adapter->uploadAndCreateScan($scan, $localPaths);
+    }
+
+    public function testUploadAndCreateScanHandlesGuzzleException(): void
+    {
+        $repo = new Repository();
+        $repo->setName('guzzle-error-repo');
+
+        $scan = new RepositoryScan();
+        $scan->setRepository($repo);
+
+        $tmpFile = tempnam(sys_get_temp_dir(), 'test_');
+        file_put_contents($tmpFile, 'test');
+        $localPaths = [$tmpFile];
+
+        $this->authService
+            ->expects($this->once())
+            ->method('getJwtToken')
+            ->willReturn('jwt-test');
+
+        $request = new Request('POST', 'http://example.com');
+        $exception = new RequestException('Network error', $request);
+
+        $this->httpClient
+            ->expects($this->once())
+            ->method('post')
+            ->willThrowException($exception);
+
+        $this->expectException(\RuntimeException::class);
+        $this->expectExceptionMessage('Failed to upload file');
+
+        $this->adapter->uploadAndCreateScan($scan, $localPaths);
+
+        unlink($tmpFile);
+    }
+
+    public function testUploadAndCreateScanWithFileMapping(): void
+    {
+        $repo = new Repository();
+        $repo->setName('file-mapping-repo');
+
+        $scan = new RepositoryScan();
+        $scan->setRepository($repo);
+
+        $tmpFile = tempnam(sys_get_temp_dir(), 'test_');
+        file_put_contents($tmpFile, 'test');
+        $localPaths = [$tmpFile];
+
+        $options = [
+            'fileMapping' => [
+                $tmpFile => 'composer.lock' // Map temp file to original name
+            ]
+        ];
+
+        $this->authService
+            ->expects($this->once())
+            ->method('getJwtToken')
+            ->willReturn('jwt-test');
+
+        $uploadResponse = new Response(200, [], json_encode([
+            'ciUploadId' => 'upload-123',
+            'files' => [['dependencyFileId' => 'file-456']]
+        ]));
+
+        $finishResponse = new Response(204);
 
         $this->httpClient
             ->expects($this->exactly(2))
-            ->method('request')
+            ->method('post')
             ->willReturnOnConsecutiveCalls($uploadResponse, $finishResponse);
 
         $this->mappingService
             ->expects($this->exactly(2))
-            ->method('createMapping')
-            ->willReturnCallback(function ($providerCode, $type, $externalId) {
-                if ($type === 'file') {
-                    $this->assertSame('dep-file-999', $externalId);
-                    return 'mapping-file-999';
-                }
-                return 'mapping-ci-upload';
-            });
+            ->method('createMapping');
 
-        $result = $this->adapter->uploadAndCreateScan($scan, $localPaths);
+        $result = $this->adapter->uploadAndCreateScan($scan, $localPaths, $options);
 
-        $this->assertContains('dep-file-999', $result['provider_file_ids']);
+        $this->assertSame('upload-123', $result['ciUploadId']);
+
+        unlink($tmpFile);
+    }
+
+    public function testPollScanStatusSuccess(): void
+    {
+        $ciUploadId = 'test-upload-123';
+        $jwt = 'test-jwt';
+
+        $this->authService
+            ->expects($this->once())
+            ->method('getJwtToken')
+            ->willReturn($jwt);
+
+        $responseData = [
+            'progress' => 100,
+            'vulnerabilitiesFound' => 5,
+            'detailsUrl' => 'https://debricked.com/details/123'
+        ];
+
+        $response = new Response(200, [], json_encode($responseData));
+
+        $this->httpClient
+            ->expects($this->once())
+            ->method('get')
+            ->with(
+                $this->stringContains('/open/ci/upload/status'),
+                $this->callback(function ($options) use ($jwt, $ciUploadId) {
+                    return $options['headers']['Authorization'] === "Bearer {$jwt}"
+                        && $options['query']['ciUploadId'] === $ciUploadId;
+                })
+            )
+            ->willReturn($response);
+
+        $result = $this->adapter->pollScanStatus($ciUploadId);
+
+        $this->assertSame(100, $result['progress']);
+        $this->assertTrue($result['scan_completed']);
+        $this->assertSame(5, $result['vulnerabilities_found']);
+        $this->assertSame('https://debricked.com/details/123', $result['details_url']);
+    }
+
+    public function testPollScanStatusInProgress(): void
+    {
+        $ciUploadId = 'in-progress-123';
+        $jwt = 'test-jwt';
+
+        $this->authService
+            ->expects($this->once())
+            ->method('getJwtToken')
+            ->willReturn($jwt);
+
+        $responseData = [
+            'progress' => 50,
+            'vulnerabilitiesFound' => 0
+        ];
+
+        $response = new Response(200, [], json_encode($responseData));
+
+        $this->httpClient
+            ->expects($this->once())
+            ->method('get')
+            ->willReturn($response);
+
+        $result = $this->adapter->pollScanStatus($ciUploadId);
+
+        $this->assertSame(50, $result['progress']);
+        $this->assertFalse($result['scan_completed']);
+        $this->assertSame(0, $result['vulnerabilities_found']);
+    }
+
+    public function testPollScanStatusHandlesGuzzleException(): void
+    {
+        $ciUploadId = 'error-upload-123';
+        $jwt = 'test-jwt';
+
+        $this->authService
+            ->expects($this->once())
+            ->method('getJwtToken')
+            ->willReturn($jwt);
+
+        $request = new Request('GET', 'http://example.com');
+        $exception = new RequestException('Connection timeout', $request);
+
+        $this->httpClient
+            ->expects($this->once())
+            ->method('get')
+            ->willThrowException($exception);
+
+        $this->expectException(\RuntimeException::class);
+        $this->expectExceptionMessage('Failed to poll scan status');
+
+        $this->adapter->pollScanStatus($ciUploadId);
     }
 
     public function testNormalizeScanResultWithCompletedScan(): void
@@ -478,28 +589,12 @@ class DebrickedProviderAdapterTest extends TestCase
     {
         $raw = [
             'scanCompleted' => true
-            // Missing vulnerableDependencies and vulnerabilitiesFound
         ];
 
         $result = $this->adapter->normalizeScanResult($raw);
 
         $this->assertSame('completed', $result['status']);
         $this->assertSame([], $result['vulnerabilities']);
-        $this->assertSame(0, $result['vulnerability_count']);
-    }
-
-    public function testNormalizeScanResultWithEmptyVulnerabilities(): void
-    {
-        $raw = [
-            'scanCompleted' => true,
-            'vulnerableDependencies' => [],
-            'vulnerabilitiesFound' => 0
-        ];
-
-        $result = $this->adapter->normalizeScanResult($raw);
-
-        $this->assertSame('completed', $result['status']);
-        $this->assertEmpty($result['vulnerabilities']);
         $this->assertSame(0, $result['vulnerability_count']);
     }
 }

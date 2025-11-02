@@ -58,9 +58,27 @@ services:
                     key: '%env(AWS_ACCESS_KEY_ID)%'
                     secret: '%env(AWS_SECRET_ACCESS_KEY)%'
      # -------- Provider adapters (tagged) ----------
-    App\Service\Provider\DebrickedProviderAdapter:
+    # Debricked Provider Adapter (cURL-based - disabled in favor of Guzzle)
+    # App\Service\Provider\DebrickedProviderAdapter:
+    #     arguments:
+    #         $http: '@http_client'
+    #         $mapping: '@App\Service\ExternalMappingService'
+    #         $logger: '@logger'
+    #         $auth: '@App\Service\Provider\DebrickedAuthService'
+    #         $baseUrl: '%env(DEBRICKED_API_BASE)%'
+    #     tags: ['app.provider.adapter']
+
+    # Guzzle HTTP Client for Debricked Adapter
+    guzzle.http_client:
+        class: GuzzleHttp\Client
         arguments:
-            $http: '@http_client'
+            - timeout: 30
+              connect_timeout: 10
+
+    # Debricked Provider Adapter (Guzzle-based - DEFAULT)
+    App\Service\Provider\DebrickedProviderAdapterGuzzle:
+        arguments:
+            $httpClient: '@guzzle.http_client'
             $mapping: '@App\Service\ExternalMappingService'
             $logger: '@logger'
             $auth: '@App\Service\Provider\DebrickedAuthService'

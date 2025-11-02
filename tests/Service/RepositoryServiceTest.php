@@ -130,4 +130,178 @@ class RepositoryServiceTest extends TestCase
         $this->assertInstanceOf(NotificationSetting::class, $res);
         $this->assertEquals(['new@x.com'], $res->getEmails());
     }
+
+    public function testCreateRepositoryThrowsExceptionWhenNameMissing()
+    {
+        $this->expectException(\InvalidArgumentException::class);
+        $this->expectExceptionMessage('Repository name is required');
+
+        $this->service->createRepository([]);
+    }
+
+    public function testCreateRepositoryWithNotificationSettings()
+    {
+        $data = [
+            'name' => 'repo-with-notif',
+            'url' => 'https://github.com/test/repo',
+            'notification_settings' => [
+                'emails' => ['test@example.com'],
+                'slack_channels' => ['#general'],
+                'webhooks' => ['https://webhook.site/test']
+            ]
+        ];
+
+        // Expect persist called twice: once for repo, once for notification
+        $this->em->expects($this->exactly(2))->method('persist');
+        $this->em->expects($this->once())->method('flush');
+
+        $result = $this->service->createRepository($data);
+
+        $this->assertInstanceOf(RepoEntity::class, $result);
+        $this->assertEquals('repo-with-notif', $result->getName());
+    }
+
+    public function testListRepositoriesReturnsPaginatedResults()
+    {
+        $repo1 = new RepoEntity();
+        $repo1->setName('repo1');
+        
+        $repo2 = new RepoEntity();
+        $repo2->setName('repo2');
+
+        $queryBuilder = $this->createMock(\Doctrine\ORM\QueryBuilder::class);
+        $query = $this->getMockBuilder(\Doctrine\ORM\Query::class)
+            ->disableOriginalConstructor()
+            ->getMock();
+        
+        $this->em->expects($this->once())
+            ->method('createQueryBuilder')
+            ->willReturn($queryBuilder);
+
+        $queryBuilder->expects($this->once())->method('select')->willReturnSelf();
+        $queryBuilder->expects($this->once())->method('from')->willReturnSelf();
+        $queryBuilder->expects($this->once())->method('orderBy')->willReturnSelf();
+        $queryBuilder->expects($this->once())->method('setFirstResult')->willReturnSelf();
+        $queryBuilder->expects($this->once())->method('setMaxResults')->willReturnSelf();
+        $queryBuilder->expects($this->once())->method('getQuery')->willReturn($query);
+        
+        $query->expects($this->once())->method('getResult')->willReturn([$repo1, $repo2]);
+        
+        $this->repoRepo->expects($this->once())->method('count')->willReturn(2);
+
+        $result = $this->service->listRepositories(1, 20);
+
+        $this->assertIsArray($result);
+        $this->assertArrayHasKey('data', $result);
+        $this->assertArrayHasKey('meta', $result);
+        $this->assertCount(2, $result['data']);
+        $this->assertEquals(1, $result['meta']['page']);
+        $this->assertEquals(20, $result['meta']['limit']);
+        $this->assertEquals(2, $result['meta']['total']);
+    }
+
+    public function testUpdateRepositoryReturnsNullWhenNotFound()
+    {
+        $this->repoRepo->expects($this->once())->method('find')->with('missing-id')->willReturn(null);
+
+        $result = $this->service->updateRepository('missing-id', ['name' => 'new-name']);
+
+        $this->assertNull($result);
+    }
+
+    public function testDeleteRepositoryReturnsFalseWhenNotFound()
+    {
+        $this->repoRepo->expects($this->once())->method('find')->with('missing-id')->willReturn(null);
+
+        $result = $this->service->deleteRepository('missing-id');
+
+        $this->assertFalse($result);
+    }
+
+    public function testGetNotificationSettingsReturnsNullWhenRepoNotFound()
+    {
+        $this->repoRepo->expects($this->once())->method('find')->with('missing-id')->willReturn(null);
+
+        $result = $this->service->getNotificationSettings('missing-id');
+
+        $this->assertNull($result);
+    }
+
+    public function testGetNotificationSettingsReturnsSettingsWhenFound()
+    {
+        $repo = new RepoEntity();
+        $repo->setName('test-repo');
+
+        $notif = new NotificationSetting();
+        $notif->setRepository($repo);
+        $notif->setEmails(['test@example.com']);
+
+        $this->repoRepo->expects($this->once())->method('find')->with($repo->getId())->willReturn($repo);
+        $this->notifRepo->expects($this->once())->method('findOneBy')->with(['repository' => $repo])->willReturn($notif);
+
+        $result = $this->service->getNotificationSettings($repo->getId());
+
+        $this->assertInstanceOf(NotificationSetting::class, $result);
+        $this->assertEquals(['test@example.com'], $result->getEmails());
+    }
+
+    public function testReplaceNotificationSettingsThrowsExceptionWhenRepoNotFound()
+    {
+        $this->repoRepo->expects($this->once())->method('find')->with('missing-id')->willReturn(null);
+
+        $this->expectException(\InvalidArgumentException::class);
+        $this->expectExceptionMessage('Repository not found');
+
+        $this->service->replaceNotificationSettings('missing-id', ['emails' => ['test@example.com']]);
+    }
+
+    public function testReplaceNotificationSettingsUpdatesExisting()
+    {
+        $repo = new RepoEntity();
+        $repo->setName('test-repo');
+
+        $existing = new NotificationSetting();
+        $existing->setRepository($repo);
+        $existing->setEmails(['old@example.com']);
+
+        $this->repoRepo->expects($this->once())->method('find')->with($repo->getId())->willReturn($repo);
+        $this->notifRepo->expects($this->once())->method('findOneBy')->with(['repository' => $repo])->willReturn($existing);
+        $this->em->expects($this->once())->method('flush');
+
+        $result = $this->service->replaceNotificationSettings($repo->getId(), [
+            'emails' => ['new@example.com'],
+            'slack_channels' => ['#new-channel']
+        ]);
+
+        $this->assertInstanceOf(NotificationSetting::class, $result);
+        $this->assertEquals(['new@example.com'], $result->getEmails());
+        $this->assertEquals(['#new-channel'], $result->getSlackChannels());
+    }
+
+    public function testPatchNotificationSettingsThrowsExceptionWhenRepoNotFound()
+    {
+        $this->repoRepo->expects($this->once())->method('find')->with('missing-id')->willReturn(null);
+
+        $this->expectException(\InvalidArgumentException::class);
+        $this->expectExceptionMessage('Repository not found');
+
+        $this->service->patchNotificationSettings('missing-id', ['emails' => ['test@example.com']]);
+    }
+
+    public function testPatchNotificationSettingsCreatesNewWhenNotExists()
+    {
+        $repo = new RepoEntity();
+        $repo->setName('test-repo');
+
+        // The service will call find() twice: once in patchNotificationSettings and once in replaceNotificationSettings
+        $this->repoRepo->expects($this->exactly(2))->method('find')->with($repo->getId())->willReturn($repo);
+        // findOneBy will be called twice as well
+        $this->notifRepo->expects($this->exactly(2))->method('findOneBy')->with(['repository' => $repo])->willReturn(null);
+        $this->em->expects($this->once())->method('persist');
+        $this->em->expects($this->once())->method('flush');
+
+        $result = $this->service->patchNotificationSettings($repo->getId(), ['emails' => ['new@example.com']]);
+
+        $this->assertInstanceOf(NotificationSetting::class, $result);
+    }
 }
