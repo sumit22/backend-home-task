@@ -1,0 +1,422 @@
+{
+  "info": {
+    "name": "Backend Home Task API Tests",
+    "description": "Complete API test suite for Backend Home Task application. Based on test-backend-api-with-notifications.ps1",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "http://localhost:8888",
+      "type": "string"
+    },
+    {
+      "key": "mailpitUrl",
+      "value": "http://localhost:8025/api/v1",
+      "type": "string"
+    },
+    {
+      "key": "repositoryId",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "scanId",
+      "value": "",
+      "type": "string"
+    }
+  ],
+  "item": [
+    {
+      "name": "1. Health Checks",
+      "item": [
+        {
+          "name": "Liveness Probe",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/health/live",
+              "host": ["{{baseUrl}}"],
+              "path": ["health", "live"]
+            },
+            "description": "K8s liveness probe - checks if application is alive"
+          }
+        },
+        {
+          "name": "Readiness Probe",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/health/ready",
+              "host": ["{{baseUrl}}"],
+              "path": ["health", "ready"]
+            },
+            "description": "K8s readiness probe - checks database and filesystem dependencies"
+          }
+        }
+      ],
+      "description": "Health check endpoints for Kubernetes monitoring"
+    },
+    {
+      "name": "2. Repositories",
+      "item": [
+        {
+          "name": "Create Repository with Notifications",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status code is 201\", function () {",
+                  "    pm.response.to.have.status(201);",
+                  "});",
+                  "",
+                  "pm.test(\"Response has repository ID\", function () {",
+                  "    const jsonData = pm.response.json();",
+                  "    pm.expect(jsonData).to.have.property('id');",
+                  "    pm.collectionVariables.set('repositoryId', jsonData.id);",
+                  "    console.log('✓ Repository ID saved:', jsonData.id);",
+                  "});",
+                  "",
+                  "pm.test(\"Repository has notification settings\", function () {",
+                  "    const jsonData = pm.response.json();",
+                  "    pm.expect(jsonData.notification_settings).to.have.property('emails');",
+                  "    pm.expect(jsonData.notification_settings.emails).to.be.an('array');",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"test-repository-{{$timestamp}}\",\n  \"url\": \"https://github.com/test-user/test-repo\",\n  \"defaultBranch\": \"main\",\n  \"language\": \"PHP\",\n  \"notification_settings\": {\n    \"emails\": [\"test@example.com\", \"dev@example.com\"],\n    \"slack_channels\": [\"#security-alerts\"]\n  }\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/repositories",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "repositories"]
+            },
+            "description": "Create a repository with notification settings for email and Slack alerts"
+          }
+        },
+        {
+          "name": "Get All Repositories",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/repositories",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "repositories"]
+            },
+            "description": "Retrieve all repositories"
+          }
+        },
+        {
+          "name": "Get Repository by ID",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/repositories/{{repositoryId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "repositories", "{{repositoryId}}"]
+            },
+            "description": "Get details of a specific repository"
+          }
+        }
+      ],
+      "description": "Repository management endpoints"
+    },
+    {
+      "name": "3. Scans",
+      "item": [
+        {
+          "name": "Create Scan",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status code is 201\", function () {",
+                  "    pm.response.to.have.status(201);",
+                  "});",
+                  "",
+                  "pm.test(\"Response has scan ID\", function () {",
+                  "    const jsonData = pm.response.json();",
+                  "    pm.expect(jsonData).to.have.property('id');",
+                  "    pm.collectionVariables.set('scanId', jsonData.id);",
+                  "    console.log('✓ Scan ID saved:', jsonData.id);",
+                  "});",
+                  "",
+                  "pm.test(\"Scan status is valid\", function () {",
+                  "    const jsonData = pm.response.json();",
+                  "    pm.expect(jsonData.status).to.be.oneOf(['pending', 'awaiting_upload']);",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"branch\": \"main\",\n  \"provider\": \"debricked\",\n  \"requested_by\": \"postman-test\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/repositories/{{repositoryId}}/scans",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "repositories", "{{repositoryId}}", "scans"]
+            },
+            "description": "Create a new vulnerability scan for a repository"
+          }
+        },
+        {
+          "name": "Get Scan by ID",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status code is 200\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "pm.test(\"Response contains scan details\", function () {",
+                  "    const jsonData = pm.response.json();",
+                  "    pm.expect(jsonData).to.have.property('scan');",
+                  "    pm.expect(jsonData.scan).to.have.property('id');",
+                  "    pm.expect(jsonData.scan).to.have.property('status');",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/repositories/{{repositoryId}}/scans/{{scanId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "repositories", "{{repositoryId}}", "scans", "{{scanId}}"]
+            },
+            "description": "Get details of a specific scan including status and vulnerabilities"
+          }
+        },
+        {
+          "name": "Upload Files to Scan",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status code is 201\", function () {",
+                  "    pm.response.to.have.status(201);",
+                  "});",
+                  "",
+                  "pm.test(\"Files were uploaded successfully\", function () {",
+                  "    const jsonData = pm.response.json();",
+                  "    pm.expect(jsonData).to.have.property('files');",
+                  "    pm.expect(jsonData.files).to.be.an('array');",
+                  "    pm.expect(jsonData.files.length).to.be.above(0);",
+                  "    console.log('✓ Uploaded', jsonData.files.length, 'file(s)');",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [],
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                {
+                  "key": "files[]",
+                  "type": "file",
+                  "src": [],
+                  "description": "Select dependency files from test-scripts/test-files/"
+                },
+                {
+                  "key": "upload_complete",
+                  "value": "true",
+                  "type": "text",
+                  "description": "Mark upload as complete to trigger processing"
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/scans/{{scanId}}/files",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "scans", "{{scanId}}", "files"]
+            },
+            "description": "Upload dependency files (composer.lock, package-lock.json, etc.) to a scan"
+          }
+        },
+        {
+          "name": "Check Scan Status (Poll)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status code is 200\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "const jsonData = pm.response.json();",
+                  "const status = jsonData.scan.status;",
+                  "",
+                  "pm.test(\"Scan has a valid status\", function () {",
+                  "    const validStatuses = ['pending', 'awaiting_upload', 'processing', 'completed', 'failed'];",
+                  "    pm.expect(validStatuses).to.include(status);",
+                  "});",
+                  "",
+                  "console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');",
+                  "console.log('Current scan status:', status);",
+                  "",
+                  "if (status === 'processing') {",
+                  "    console.log('⏳ Scan is still processing. Re-run this request in a few seconds.');",
+                  "} else if (status === 'completed') {",
+                  "    console.log('✓ Scan completed successfully!');",
+                  "} else if (status === 'failed') {",
+                  "    console.log('✗ Scan failed!');",
+                  "}",
+                  "console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/repositories/{{repositoryId}}/scans/{{scanId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "repositories", "{{repositoryId}}", "scans", "{{scanId}}"]
+            },
+            "description": "Poll this endpoint to check if scan has completed. Re-run manually every few seconds until status is 'completed' or 'failed'."
+          }
+        }
+      ],
+      "description": "Vulnerability scan management endpoints"
+    },
+    {
+      "name": "4. Notifications",
+      "item": [
+        {
+          "name": "Clear Mailpit Inbox",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Successfully cleared mailbox\", function () {",
+                  "    pm.expect([200, 204]).to.include(pm.response.code);",
+                  "});",
+                  "",
+                  "console.log('✓ Mailpit inbox cleared');"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{mailpitUrl}}/messages",
+              "host": ["{{mailpitUrl}}"],
+              "path": ["messages"]
+            },
+            "description": "Clear all emails from Mailpit inbox before testing"
+          }
+        },
+        {
+          "name": "Get Mailpit Messages",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status code is 200\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "const jsonData = pm.response.json();",
+                  "const messages = jsonData.messages;",
+                  "",
+                  "console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');",
+                  "console.log(`📧 Found ${messages.length} email(s) in Mailpit`);",
+                  "console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');",
+                  "",
+                  "if (messages.length > 0) {",
+                  "    messages.forEach((msg, index) => {",
+                  "        console.log(`\\nEmail #${index + 1}:`);",
+                  "        console.log(`  Subject: ${msg.Subject}`);",
+                  "        console.log(`  From: ${msg.From.Address}`);",
+                  "        console.log(`  To: ${msg.To[0].Address}`);",
+                  "        ",
+                  "        if (/scan|upload|vulnerability|completed/i.test(msg.Subject)) {",
+                  "            console.log('  Type: Scan-related notification ✓');",
+                  "        }",
+                  "    });",
+                  "    ",
+                  "    const scanEmails = messages.filter(msg => /scan|upload|vulnerability|completed/i.test(msg.Subject));",
+                  "    console.log(`\\nScan-related emails: ${scanEmails.length}`);",
+                  "    ",
+                  "    pm.test(\"At least one scan-related email found\", function () {",
+                  "        pm.expect(scanEmails.length).to.be.above(0);",
+                  "    });",
+                  "} else {",
+                  "    console.log('\\n⚠ No emails found. Check http://localhost:8025');",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{mailpitUrl}}/messages?limit=50",
+              "host": ["{{mailpitUrl}}"],
+              "path": ["messages"],
+              "query": [
+                {
+                  "key": "limit",
+                  "value": "50",
+                  "description": "Maximum number of messages to retrieve"
+                }
+              ]
+            },
+            "description": "Retrieve emails from Mailpit to verify notifications were sent. Run this after scan completes to check for scan-related emails."
+          }
+        }
+      ],
+      "description": "Email notification verification using Mailpit API"
+    }
+  ]
+}

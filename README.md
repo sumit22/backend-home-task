@@ -271,6 +271,28 @@ curl http://localhost:8888/health/live
 curl http://localhost:8888/health/ready
 ```
 
+### Postman Collection
+
+A complete Postman collection is available for testing all API endpoints:
+
+**Collection ID:** `63172-19b4b9be-645c-46ad-93b2-b2632c2f4729`
+
+The collection includes:
+- Health check endpoints (liveness & readiness probes)
+- Repository management (create, list, get by ID)
+- Vulnerability scans (create, upload files, check status)
+- Email notification verification (via Mailpit API)
+- Automated test scripts with variable management
+
+**Setup Instructions:**
+1. Import the collection into Postman
+2. Configure variables (baseUrl, mailpitUrl)
+3. Follow the workflow: Clear Mailpit → Create Repository → Create Scan → Upload Files → Check Status → Verify Notifications
+
+**Documentation:**
+- Full guide: `postman/README.md`
+- Quick setup: `postman/QUICK-SETUP.md`
+
 ### Repository Endpoints
 ```bash
 # List repositories
