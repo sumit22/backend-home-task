@@ -1,5 +1,8 @@
 framework:
     notifier:
+        # Use Messenger for async notification delivery
+        message_bus: messenger.bus.default
+        
         # Chat transports (Slack)
         chatter_transports:
             slack: '%env(SLACK_DSN)%'
@@ -7,9 +10,9 @@ framework:
         # Channel policy: route notifications based on importance
         # urgent/high -> email + Slack, medium -> email + Slack, low -> Slack only
         channel_policy:
-            urgent: ['email', 'chat']   # High vulnerabilities (>50) -> both
-            high: ['email', 'chat']      # Failed/timeout scans -> both
-            medium: ['email', 'chat']    # Completed scans -> both
+            urgent: ['email', 'chat']   # High vulnerabilities -> Email + Slack
+            high: ['email', 'chat']      # Failed/timeout scans -> Email + Slack
+            medium: ['email', 'chat']    # Completed scans -> Email + Slack
             low: ['chat']                # In-progress updates -> Slack only
         
         # Admin recipients for notifications

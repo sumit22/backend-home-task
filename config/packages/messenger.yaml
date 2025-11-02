@@ -30,6 +30,12 @@ framework:
             'App\Message\StartProviderScanMessage': async
             'App\Message\PollProviderScanResultsMessage': async
             'App\Message\RepositoryScanStatusChangedMessage': scan_status
+            
+            # Route Symfony Notifier messages to async transport
+            'Symfony\Component\Notifier\Message\ChatMessage': async
+            'Symfony\Component\Notifier\Message\EmailMessage': async
+            'Symfony\Component\Notifier\Message\SmsMessage': async
+            'Symfony\Component\Notifier\Message\PushMessage': async
 
 # when@test:
 #    framework:

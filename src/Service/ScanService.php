@@ -20,7 +20,8 @@ class ScanService implements ScanServiceInterface
     public function __construct(
         private EntityManagerInterface $em,
         private FilesystemOperator $filesystem,           // flysystem.storage.s3
-        private MessageBusInterface $bus                 // messenger for async start
+        private MessageBusInterface $bus,                // messenger for async start
+        private ScanStateMachine $stateMachine           // FSM for status transitions
     ) {}
 
     public function createScan(string $repositoryId, ?string $branch = null, ?string $providerCode = null, ?string $requestedBy = null): RepositoryScan
@@ -98,8 +99,8 @@ class ScanService implements ScanServiceInterface
         $this->em->flush();
 
         if ($uploadComplete) {
-            $scan->setStatus('uploaded');
-            $this->em->flush();
+            // Use state machine for transition
+            $this->stateMachine->transition($scan, 'uploaded', 'All files uploaded successfully');
             // dispatch start provider scan async
             $this->bus->dispatch(new \App\Message\StartProviderScanMessage($scan->getId()));
         }
@@ -114,9 +115,8 @@ class ScanService implements ScanServiceInterface
             throw new \InvalidArgumentException('Scan not found');
         }
 
-        // mark queued and enqueue async
-        $scan->setStatus('queued');
-        $this->em->flush();
+        // Dispatch async message to start provider scan
+        // Status will transition to 'running' when handler processes this
         $this->bus->dispatch(new \App\Message\StartProviderScanMessage($scan->getId()));
     }
 

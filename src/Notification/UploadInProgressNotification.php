@@ -18,12 +18,10 @@ use Symfony\Component\Notifier\Bridge\Slack\SlackOptions;
 class UploadInProgressNotification extends Notification implements ChatNotificationInterface
 {
     public function __construct(
-        private RepositoryScan $scan,
-        array $channels = ['chat']
+        private RepositoryScan $scan
     ) {
         parent::__construct(
-            subject: '⏳ Upload In Progress',
-            channels: $channels
+            subject: 'Upload In Progress'
         );
         
         $this->importance(Notification::IMPORTANCE_LOW);
@@ -31,23 +29,14 @@ class UploadInProgressNotification extends Notification implements ChatNotificat
 
     public function asChatMessage(RecipientInterface $recipient, string $transport = null): ?ChatMessage
     {
-        $statusEmojis = [
-            'uploaded' => '📤',
-            'queued' => '📋',
-            'running' => '▶️',
-        ];
-        
-        $emoji = $statusEmojis[$this->scan->getStatus()] ?? '⏳';
-        
         $messageText = sprintf(
-            "%s *Upload In Progress*\n\n" .
+            "*Upload In Progress*\n\n" .
             "*Repository:* %s\n" .
             "*Branch:* %s\n" .
             "*Status:* %s\n" .
             "*Provider:* %s\n" .
             "*Scan ID:* `%s`\n" .
             "*Started:* %s",
-            $emoji,
             $this->scan->getRepository()->getName(),
             $this->scan->getBranch() ?? 'main',
             ucfirst($this->scan->getStatus()),
@@ -59,9 +48,7 @@ class UploadInProgressNotification extends Notification implements ChatNotificat
         $message = new ChatMessage($messageText);
         
         if ($transport === 'slack') {
-            $message->options(
-                (new SlackOptions())->iconEmoji($emoji)
-            );
+            $message->options(new SlackOptions());
         }
         
         return $message;
