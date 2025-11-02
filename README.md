@@ -53,6 +53,35 @@ and running before, or the command will fail) in root folder.
 We recommend that you always use the PHP container's shell whenever you execute PHP, such as when installing and 
 requiring new composer dependencies.
 
+## Rate Limiting
+
+The application implements rate limiting at the **nginx web server level** to protect against abuse and ensure fair resource usage.
+
+### Rate Limit Configuration
+
+Three different rate limiting zones are configured with varying strictness:
+
+| Endpoint Pattern | Zone | Rate | Burst | Description |
+|-----------------|------|------|-------|-------------|
+| `/api/*` (general) | `api_limit` | 100 req/min | 20 | Default limit for all API endpoints |
+| `/api/repositories/{id}/scans` | `scan_limit` | 20 req/min | 10 | Stricter limit for scan creation |
+| `/api/scans/{id}/files` | `upload_limit` | 10 req/min | 5 | Most strict for file uploads |
+
+### Rate Limit Behavior
+
+- **Rate**: The average number of requests allowed per minute per IP address
+- **Burst**: Additional requests allowed during traffic spikes (processed immediately with `nodelay`)
+- **429 Response**: When limits are exceeded, returns JSON error response:
+  ```json
+  {
+    "error": "Too many requests. Please slow down and try again later."
+  }
+  ```
+
+### Configuration Location
+
+Rate limiting is configured in `docker/nginx/default.conf` using nginx's `limit_req_zone` and `limit_req` directives.
+
 ## LocalStack (AWS Services Emulator)
 
 LocalStack emulates AWS services locally. S3 bucket `rule-engine-files` is auto-created on startup.
