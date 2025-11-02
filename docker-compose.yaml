@@ -105,7 +105,7 @@ services:
         entrypoint:
             - /bin/sh
             - -c
-            - ip -4 route list match 0/0 | awk '{print $$3" host.docker.internal"}' >> /etc/hosts && php-fpm --allow-to-run-as-root
+            - ip -4 route list match 0/0 | awk '{print $$3" host.docker.internal"}' >> /etc/hosts && /usr/local/bin/startup.sh
         restart: on-failure
         tty: true
         user: root

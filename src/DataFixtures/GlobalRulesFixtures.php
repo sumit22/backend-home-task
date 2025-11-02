@@ -26,6 +26,9 @@ class GlobalRulesFixtures extends Fixture
 {
     public function load(ObjectManager $manager): void
     {
+        // Get vulnerability threshold from environment variable with default of 10
+        $vulnerabilityThreshold = (int)($_ENV['VULNERABILITY_THRESHOLD'] ?? 10);
+        
         // ============================================================================
         // RULE 1: High Vulnerability Count Alert
         // ============================================================================
@@ -35,7 +38,7 @@ class GlobalRulesFixtures extends Fixture
         $rule1->setEnabled(true);
         $rule1->setTriggerType('vulnerability_threshold');
         $rule1->setTriggerPayload([
-            'threshold' => 10,  // Alert if more than 10 vulnerabilities
+            'threshold' => $vulnerabilityThreshold,  // Alert if more than threshold vulnerabilities
         ]);
         $rule1->setScope('global');
         $rule1->setAutoRemediation(false);
@@ -45,7 +48,7 @@ class GlobalRulesFixtures extends Fixture
         $action1a->setRule($rule1);
         $action1a->setActionType('email');
         $action1a->setActionPayload([
-            'threshold' => 10,  // Passed to HighVulnerabilityNotification
+            'threshold' => $vulnerabilityThreshold,  // Passed to HighVulnerabilityNotification
         ]);
         
         // Action 1b: Send Slack (HighVulnerabilityNotification with 'chat' channel)
@@ -53,7 +56,7 @@ class GlobalRulesFixtures extends Fixture
         $action1b->setRule($rule1);
         $action1b->setActionType('slack');
         $action1b->setActionPayload([
-            'threshold' => 10,  // Passed to HighVulnerabilityNotification
+            'threshold' => $vulnerabilityThreshold,  // Passed to HighVulnerabilityNotification
         ]);
         
         $manager->persist($rule1);
@@ -119,7 +122,7 @@ class GlobalRulesFixtures extends Fixture
         
         // Log success
         echo "\n✅ Successfully loaded 3 global rules:\n";
-        echo "   1. High Vulnerability Count Alert (threshold: 10)\n";
+        echo "   1. High Vulnerability Count Alert (threshold: {$vulnerabilityThreshold})\n";
         echo "      → HighVulnerabilityNotification (Email + Slack)\n";
         echo "   2. Upload In Progress Notification\n";
         echo "      → UploadInProgressNotification (Slack only)\n";
